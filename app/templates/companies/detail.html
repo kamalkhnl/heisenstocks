@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}{{ company.company_name }} ({{ company.symbol }}) - Heisenstocks{% endblock %}
+
+{% block extra_css %}
+<style>
+  .stock-data-table th,
+  .stock-data-table td {
+    white-space: nowrap;
+  }
+  .mini-chart {
+    height: 200px;
+    width: 100%;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('companies.index') }}">Companies</a></li>
+                <li class="breadcrumb-item active">{{ company.symbol }}</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-dark text-white py-3">
+                <h5 class="mb-0">
+                    <i class="fas fa-building me-2"></i>{{ company.company_name }} ({{ company.symbol }})
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="text-muted small">Company ID</label>
+                            <div>{{ company.company_id }}</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="text-muted small">Symbol</label>
+                            <div><strong>{{ company.symbol }}</strong></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="text-muted small">Sector</label>
+                            <div>{{ company.sector or 'N/A' }}</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="text-muted small">Listed</label>
+                            <div><i class="fas fa-check-circle text-success me-1"></i>NEPSE</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <div class="btn-group" role="group">
+                        <a href="{{ url_for('charts.index') }}?type=company&id={{ company.company_id }}" class="btn btn-outline-primary">
+                            <i class="fas fa-chart-area me-1"></i>View Interactive Chart
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-dark text-white py-3">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-line me-2"></i>Mini Chart
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="mini-chart" class="mini-chart"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-dark text-white py-3">
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>Historical Stock Data
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped mb-0 stock-data-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th class="text-end">Open</th>
+                                <th class="text-end">High</th>
+                                <th class="text-end">Low</th>
+                                <th class="text-end">Close</th>
+                                <th class="text-end">Change %</th>
+                                <th class="text-end">Traded Qty</th>
+                                <th class="text-end">Turnover</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stock in stock_data %}
+                            <tr>
+                                <td>{{ stock.published_date.strftime('%Y-%m-%d') }}</td>
+                                <td class="text-end">{{ stock.open|round(2) }}</td>
+                                <td class="text-end">{{ stock.high|round(2) }}</td>
+                                <td class="text-end">{{ stock.low|round(2) }}</td>
+                                <td class="text-end">{{ stock.close|round(2) }}</td>
+                                <td class="text-end {% if stock.per_change > 0 %}text-success{% elif stock.per_change < 0 %}text-danger{% endif %}">
+                                    {% if stock.per_change > 0 %}
+                                    <i class="fas fa-caret-up me-1"></i>{{ stock.per_change|round(2) }}%
+                                    {% elif stock.per_change < 0 %}
+                                    <i class="fas fa-caret-down me-1"></i>{{ stock.per_change|abs|round(2) }}%
+                                    {% else %}
+                                    <i class="fas fa-minus me-1"></i>0.00%
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">{{ '{:,}'.format(stock.traded_quantity) }}</td>
+                                <td class="text-end">{{ '{:,.2f}'.format(stock.turnover) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize mini chart
+    const chartContainer = document.getElementById('mini-chart');
+    const chart = LightweightCharts.createChart(chartContainer, {
+        width: chartContainer.clientWidth,
+        height: chartContainer.clientHeight,
+        layout: {
+            backgroundColor: '#ffffff',
+            textColor: '#333',
+        },
+        grid: {
+            vertLines: {
+                color: 'rgba(197, 203, 206, 0.5)',
+            },
+            horzLines: {
+                color: 'rgba(197, 203, 206, 0.5)',
+            },
+        },
+        crosshair: {
+            mode: LightweightCharts.CrosshairMode.Normal,
+        },
+        priceScale: {
+            borderColor: '#ccc',
+        },
+        timeScale: {
+            borderColor: '#ccc',
+            timeVisible: true,
+        },
+    });
+    
+    // Create candlestick series
+    const candleSeries = chart.addCandlestickSeries({
+        upColor: '#26a69a',
+        downColor: '#ef5350',
+        borderDownColor: '#ef5350',
+        borderUpColor: '#26a69a',
+        wickDownColor: '#ef5350',
+        wickUpColor: '#26a69a',
+    });
+    
+    // Add stock data
+    const stockData = [
+        {% for stock in stock_data %}
+        {
+            time: '{{ stock.published_date.strftime("%Y-%m-%d") }}',
+            open: {{ stock.open|round(2) }},
+            high: {{ stock.high|round(2) }},
+            low: {{ stock.low|round(2) }},
+            close: {{ stock.close|round(2) }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+    
+    candleSeries.setData(stockData);
+    
+    // Handle window resize
+    window.addEventListener('resize', function() {
+        chart.applyOptions({
+            width: chartContainer.clientWidth,
+        });
+    });
+    
+    // Fit content
+    chart.timeScale().fitContent();
+});
+</script>
+{% endblock %}

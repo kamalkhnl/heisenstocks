@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+
+{% block title %}STONKS | Dashboard{% endblock %}
+
+{% block content %}
+<!-- NEPSE section with increased top margin for better spacing from search bar -->
+<div class="row mb-4" style="margin-top: 80px;">
+    <div class="col-lg-8">
+        <div class="card highlight-card" style="height: 365px;">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <div class="text-secondary" style="font-size: 18px; font-weight: 500;">NEPSE</div>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <h1 class="mb-0" style="font-size: 42px; font-weight: 700;">{{ (nepse.current|default(0)|string|float)|round(2) }}</h1>
+                        <div class="ms-3 {% if nepse.per_change|default(0)|string|float > 0 %}text-success{% elif nepse.per_change|default(0)|string|float < 0 %}text-danger{% endif %}" style="font-size: 18px; font-weight: 600;">
+                            {% if nepse.per_change|default(0)|string|float > 0 %}
+                            <i class="fas fa-caret-up me-1"></i>
+                            {% elif nepse.per_change|default(0)|string|float < 0 %}
+                            <i class="fas fa-caret-down me-1"></i>
+                            {% endif %}
+                            {{ (nepse.per_change|default(0)|string|float)|abs|round(2) }}%
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- NEPSE Index History Chart with specific height to match Market Summary -->
+                <div style="height:205px; width:100%;" id="performanceChart"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card" style="height: 365px;">
+            <div class="card-body p-4">
+                <h5 class="card-title mb-3">Market Summary</h5>
+                {% if nepse and nepse.published_date %}
+                <div class="d-flex justify-content-between mb-2">
+                    <div class="text-secondary">Date:</div>
+                    <div class="fw-bold">
+                        {% if nepse.published_date is string %}
+                            {{ nepse.published_date }}
+                        {% else %}
+                            {{ nepse.published_date.strftime('%b %d, %Y') }}
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                <div class="d-flex justify-content-between mb-2">
+                    <div class="text-secondary">Market Turnover:</div>
+                    <div class="fw-bold">NPR {{ "{:,.2f}".format(indices_total_turnover|default(0)|string|float) }}</div>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <div class="text-secondary">Indices:</div>
+                    <div class="fw-bold">{{ indices|length if indices else 0 }}</div>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <div class="text-secondary">Status:</div>
+                    <div>
+                        {% set nepal_hour = (now.hour + 5) % 24 %}  {# Nepal is UTC+5:45, approximating with +5 #}
+                        {% set nepal_minute = (now.minute + 45) % 60 %}
+                        {% if nepal_hour > 11 and nepal_hour < 15 or (nepal_hour == 11 and nepal_minute >= 0) or (nepal_hour == 15 and nepal_minute == 0) %}
+                            <span class="badge badge-success">OPEN</span>
+                        {% else %}
+                            <span class="badge badge-danger">CLOSED</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Market Indices section -->
+<div class="row">
+    <div class="col-12">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Market Indices</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>INDEX</th>
+                                <th>VALUE</th>
+                                <th>CHANGE</th>
+                                <th>% CHANGE</th>
+                                <th>HIGH</th>
+                                <th>LOW</th>
+                                <th class="text-center">ACTION</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for index in indices %}
+                            <tr>
+                                <td class="fw-bold">{{ index.index_name|default('Unknown') }}</td>
+                                <td>{{ (index.current|default(0)|string|float)|round(2) }}</td>
+                                <td class="{% if index.change_|default(0)|string|float > 0 %}text-success{% elif index.change_|default(0)|string|float < 0 %}text-danger{% endif %}">
+                                    {% if index.change_|default(0)|string|float > 0 %}
+                                    <i class="fas fa-caret-up me-1"></i>{{ (index.change_|default(0)|string|float)|round(2) }}
+                                    {% elif index.change_|default(0)|string|float < 0 %}
+                                    <i class="fas fa-caret-down me-1"></i>{{ (index.change_|default(0)|string|float)|abs|round(2) }}
+                                    {% else %}
+                                    0.00
+                                    {% endif %}
+                                </td>
+                                <td class="{% if index.per_change|default(0)|string|float > 0 %}text-success{% elif index.per_change|default(0)|string|float < 0 %}text-danger{% endif %}">
+                                    {% if index.per_change|default(0)|string|float > 0 %}
+                                    <i class="fas fa-caret-up me-1"></i>{{ (index.per_change|default(0)|string|float)|round(2) }}%
+                                    {% elif index.per_change|default(0)|string|float < 0 %}
+                                    <i class="fas fa-caret-down me-1"></i>{{ (index.per_change|default(0)|string|float)|abs|round(2) }}%
+                                    {% else %}
+                                    0.00%
+                                    {% endif %}
+                                </td>
+                                <td>{{ (index.high|default(0)|string|float)|round(2) }}</td>
+                                <td>{{ (index.low|default(0)|string|float)|round(2) }}</td>
+                                <td class="text-center">
+                                    <a href="{{ url_for('charts.index') }}?type=index&id={{ index.index_name|default('') }}" class="btn btn-sm btn-outline">
+                                        <i class="fas fa-chart-line"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Create performance chart
+        const chartElement = document.getElementById('performanceChart');
+        if (chartElement) {
+            const chart = LightweightCharts.createChart(chartElement, {
+                width: chartElement.clientWidth,
+                height: chartElement.clientHeight,
+                layout: {
+                    background: { color: 'transparent' },
+                    textColor: '#a2a0b3',
+                },
+                grid: {
+                    vertLines: { color: 'rgba(42, 46, 57, 0)' },
+                    horzLines: { color: 'rgba(42, 46, 57, 0.2)' },
+                },
+                priceScale: {
+                    borderVisible: false,
+                    autoScale: true,
+                },
+                timeScale: {
+                    borderVisible: false,
+                    timeVisible: true,
+                    secondsVisible: false,
+                    rightOffset: 5,
+                    barSpacing: 10,
+                },
+                crosshair: {
+                    mode: LightweightCharts.CrosshairMode.Normal,
+                },
+            });
+            
+            // Create line series
+            const areaSeries = chart.addAreaSeries({
+                topColor: 'rgba(157, 113, 232, 0.56)',
+                bottomColor: 'rgba(157, 113, 232, 0.06)',
+                lineColor: 'rgba(157, 113, 232, 1)',
+                lineWidth: 2,
+            });
+            
+            // Add loading indicator
+            const loadingIndicator = document.createElement('div');
+            loadingIndicator.style.position = 'absolute';
+            loadingIndicator.style.top = '50%';
+            loadingIndicator.style.left = '50%';
+            loadingIndicator.style.transform = 'translate(-50%, -50%)';
+            loadingIndicator.style.color = '#a2a0b3';
+            loadingIndicator.textContent = 'Loading NEPSE data...';
+            chartElement.appendChild(loadingIndicator);
+            
+            // Load the full historical NEPSE data - no date restrictions
+            fetch('/charts/api/data?type=index&id=NEPSE%20Index')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok: ' + response.statusText);
+                    }
+                    return response.json();
+                })
+                .then(indexData => {
+                    // Remove loading indicator
+                    if (chartElement.contains(loadingIndicator)) {
+                        chartElement.removeChild(loadingIndicator);
+                    }
+                    
+                    console.log("Received data: ", indexData); // Debug: check the data format
+                    
+                    if (indexData && indexData.length > 0) {
+                        // Format data for chart with proper date handling
+                        const chartData = indexData.map(item => {
+                            // Make sure value is a valid number
+                            let value = 0;
+                            if (typeof item.value === 'number') {
+                                value = item.value;
+                            } else if (typeof item.value === 'string') {
+                                value = parseFloat(item.value);
+                            }
+                            
+                            // Return properly formatted point
+                            return {
+                                time: item.time, // Date string from API
+                                value: value
+                            };
+                        });
+                        
+                        // Filter out any invalid data points
+                        const validChartData = chartData.filter(item => 
+                            !isNaN(item.value) && item.value > 0 && item.time
+                        );
+                        
+                        console.log("Valid chart data points: ", validChartData.length); // Debug
+                        
+                        // Only proceed if we have valid data
+                        if (validChartData.length > 0) {
+                            // Set the data
+                            areaSeries.setData(validChartData);
+                            
+                            // Fit the chart to show all data
+                            chart.timeScale().fitContent();
+                        } else {
+                            showNoDataMessage();
+                        }
+                    } else {
+                        showNoDataMessage();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching NEPSE data:', error);
+                    // Remove loading indicator and show error message
+                    chartElement.removeChild(loadingIndicator);
+                    showNoDataMessage();
+                });
+                
+            function showNoDataMessage() {
+                const noDataMsg = document.createElement('div');
+                noDataMsg.style.position = 'absolute';
+                noDataMsg.style.top = '50%';
+                noDataMsg.style.left = '50%';
+                noDataMsg.style.transform = 'translate(-50%, -50%)';
+                noDataMsg.style.color = '#a2a0b3';
+                noDataMsg.textContent = 'No NEPSE data available';
+                chartElement.appendChild(noDataMsg);
+            }
+            
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                chart.applyOptions({
+                    width: chartElement.clientWidth,
+                    height: chartElement.clientHeight,
+                });
+            });
+        }
+        
+        // Auto refresh the page every 5 minutes
+        setTimeout(function() {
+            window.location.reload();
+        }, 300000);
+    });
+</script>
+{% endblock %}

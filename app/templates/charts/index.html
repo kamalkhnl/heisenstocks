@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Charts | STONKS{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/charts/chart.css') }}">
+{% endblock %}
+
+{% block content %}
+<div id="chartContainer" class="chart-container">
+    <!-- Chart will be rendered here -->
+    <div class="chart-loading">
+        <div class="spinner-border text-secondary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+    
+    <!-- Legend overlay -->
+    <div class="legend-values">
+        <div class="legend-value">
+            <span class="legend-label">Symbol</span>
+            <span class="legend-price" id="chartTitle">NEPSE Index</span>
+        </div>
+        <div class="legend-value">
+            <span class="legend-label">O</span>
+            <span class="legend-price" id="openValue">-</span>
+        </div>
+        <div class="legend-value">
+            <span class="legend-label">H</span>
+            <span class="legend-price text-success" id="highValue">-</span>
+        </div>
+        <div class="legend-value">
+            <span class="legend-label">L</span>
+            <span class="legend-price text-danger" id="lowValue">-</span>
+        </div>
+        <div class="legend-value">
+            <span class="legend-label">C</span>
+            <span class="legend-price" id="closeValue">-</span>
+        </div>
+        <div class="legend-value">
+            <span class="legend-label">CHG</span>
+            <span class="legend-price" id="changeValue">-</span>
+        </div>
+        <div class="legend-value">
+            <span class="legend-label">CHG%</span>
+            <span class="legend-price" id="changePercent">-</span>
+        </div>
+        <div class="legend-value volume-data">
+            <span class="legend-label">Volume</span>
+            <span class="legend-price" id="volumeValue">-</span>
+        </div>
+    </div>
+    
+    <!-- Turnover display -->
+    <div class="turnover-display">
+        <div class="turnover-label">Market Turnover</div>
+        <div class="turnover-value" id="turnoverValue">-</div>
+    </div>
+    
+    <!-- Controls overlay -->
+    <div class="chart-toolbar">
+        <div class="chart-type-toggle">
+            <button id="lineChart" class="chart-btn">Line</button>
+            <button id="candleChart" class="chart-btn active">Candles</button>
+        </div>
+        
+        <!-- Indicators Menu -->
+        <div class="indicators-dropdown">
+            <button id="indicatorsMenuBtn" class="chart-btn">Indicators</button>
+            <div id="indicatorsMenu" class="indicators-menu">
+                <div class="indicator-item" data-indicator="sma">SMA</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart search bar (initially hidden) -->
+    <div class="chart-search-container" id="chartSearchContainer">
+        <input type="text" class="chart-search-input" id="chartSearchInput" placeholder="Search for a symbol..." autocomplete="off">
+        <div class="chart-search-results" id="chartSearchResults"></div>
+    </div>
+    
+    <!-- Search hint (shows when pressing a key on the chart) -->
+    <div class="search-hint" id="searchHint">
+        Start typing to search for a symbol, press <kbd>Esc</kbd> to cancel
+    </div>
+</div>
+
+<div id="volumeChartContainer" class="volume-chart"></div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Make sure we load Lightweight Charts library with a specific version -->
+<script src="https://unpkg.com/lightweight-charts@4.0.1/dist/lightweight-charts.standalone.production.js"></script>
+<!-- Load indicators base class first -->
+<script src="{{ url_for('static', filename='js/charts/indicators/indicator.js') }}"></script>
+<!-- Load specific indicators -->
+<script src="{{ url_for('static', filename='js/charts/indicators/sma.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts/indicators/bollinger-bands.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts/indicators/rsi.js') }}"></script>
+<!-- Main chart script -->
+<script src="{{ url_for('static', filename='js/charts/chart.js') }}"></script>
+{% endblock %}
