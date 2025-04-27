@@ -15,6 +15,9 @@
         </div>
     </div>
     
+    <!-- Active indicators list - positioned at top left with higher z-index -->
+    <div id="activeIndicatorsList" class="active-indicators-list"></div>
+    
     <!-- Legend overlay -->
     <div class="legend-values">
         <div class="legend-value">
@@ -69,6 +72,7 @@
             <button id="indicatorsMenuBtn" class="chart-btn">Indicators</button>
             <div id="indicatorsMenu" class="indicators-menu">
                 <div class="indicator-item" data-indicator="sma">SMA</div>
+                <div class="indicator-item" data-indicator="bollinger">Bollinger Bands</div>
             </div>
         </div>
     </div>
@@ -95,7 +99,7 @@
 <script src="{{ url_for('static', filename='js/charts/indicators/indicator.js') }}"></script>
 <!-- Load specific indicators -->
 <script src="{{ url_for('static', filename='js/charts/indicators/sma.js') }}"></script>
-<script src="{{ url_for('static', filename='js/charts/indicators/bollinger-bands.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts/indicators/bollinger.js') }}"></script>
 <script src="{{ url_for('static', filename='js/charts/indicators/rsi.js') }}"></script>
 <!-- Main chart script -->
 <script src="{{ url_for('static', filename='js/charts/chart.js') }}"></script>

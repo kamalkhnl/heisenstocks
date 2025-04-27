@@ -5,7 +5,7 @@
  * - Chart type toggle (candlestick/line)
  * - Volume display for company data
  * - TradingView-like symbol search
- * - Technical indicators (SMA, RSI)
+ * - Technical indicators (SMA, RSI, Bollinger Bands)
  */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const volumeDataContainer = document.querySelector('.volume-data');
     const indicatorsContainer = document.getElementById('indicatorsContainer');
     const indicatorsMenu = document.getElementById('indicatorsMenu');
+    const activeIndicatorsList = document.getElementById('activeIndicatorsList');
     
     // Search elements
     const chartSearchContainer = document.getElementById('chartSearchContainer');
@@ -425,6 +426,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 mainSeries.setData(dataForChart); 
 
                                 lastData = data;
+                                window.lastData = data;
 
                             } catch (err) {
                                 console.error('Error setting candlestick data:', err);
@@ -437,6 +439,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             mainSeries.setData(dataForChart);
 
                             lastData = data;
+                            window.lastData = data;
                         }
 
                         if (volumeChart && volumeData.length > 0) {
@@ -518,6 +521,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             mainSeries.setData(dataForChart);
 
                             lastData = data;
+                            window.lastData = data;
 
                         } catch (err) {
                             console.error(`Error setting index ${mainSeriesType} data:`, err);
@@ -1121,7 +1125,50 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 `;
                 break;
-            // Additional indicator cases can be added here
+            case 'bollinger':
+                defaultParams = { length: 20, source: 'close', stdDev: 2 };
+                dialogContent = `
+                    <div class="dialog-header">
+                        <h4>Bollinger Bands</h4>
+                        <button class="dialog-close">&times;</button>
+                    </div>
+                    <div class="dialog-content">
+                        <div class="form-group">
+                            <label for="bb-length">Period Length</label>
+                            <input type="number" id="bb-length" value="20" min="1" max="200">
+                        </div>
+                        <div class="form-group">
+                            <label for="bb-source">Price Source</label>
+                            <select id="bb-source">
+                                <option value="close" selected>Close</option>
+                                <option value="open">Open</option>
+                                <option value="high">High</option>
+                                <option value="low">Low</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="bb-stddev">Std Dev Multiplier</label>
+                            <input type="number" id="bb-stddev" value="2" min="1" max="5" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label for="bb-color">Middle Line Color</label>
+                            <input type="color" id="bb-color" value="#FFA000">
+                        </div>
+                        <div class="form-group">
+                            <label for="bb-upper-color">Upper Band Color</label>
+                            <input type="color" id="bb-upper-color" value="#00B8D9">
+                        </div>
+                        <div class="form-group">
+                            <label for="bb-lower-color">Lower Band Color</label>
+                            <input type="color" id="bb-lower-color" value="#FF5630">
+                        </div>
+                    </div>
+                    <div class="dialog-footer">
+                        <button class="btn-cancel">Cancel</button>
+                        <button class="btn-apply" id="applyIndicatorBtn">Apply</button>
+                    </div>
+                `;
+                break;
             default:
                 dialogContent = `
                     <div class="dialog-header">
@@ -1173,7 +1220,15 @@ document.addEventListener('DOMContentLoaded', function() {
                         options.color = document.getElementById('sma-color').value || '#2962FF';
                         console.log("SMA Parameters:", params, options);
                         break;
-                    // Add more cases for other indicators
+                    case 'bollinger':
+                        params.length = parseInt(document.getElementById('bb-length').value) || 20;
+                        params.source = document.getElementById('bb-source').value || 'close';
+                        params.stdDev = parseFloat(document.getElementById('bb-stddev').value) || 2;
+                        options.color = document.getElementById('bb-color').value || '#FFA000';
+                        options.upperColor = document.getElementById('bb-upper-color').value || '#00B8D9';
+                        options.lowerColor = document.getElementById('bb-lower-color').value || '#FF5630';
+                        console.log("Bollinger Bands Parameters:", params, options);
+                        break;
                 }
                 
                 // Create or update the indicator
@@ -1258,8 +1313,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Store the series in the indicator
                 indicator.series = smaSeries;
                 break;
-                
-            // Add more indicator cases here
+            case 'bollinger':
+                // Create Bollinger Bands indicator
+                indicator = new BollingerBandsIndicator(id, chart, mainSeries, options);
+                indicator.setParams(params);
+                indicator.init();
+                break;
             default:
                 console.error(`Unknown indicator type: ${type}`);
                 return;
@@ -1269,65 +1328,115 @@ document.addEventListener('DOMContentLoaded', function() {
         activeIndicators[id] = indicator;
         
         // Create indicator control UI
-        createIndicatorControl(indicator);
+        createIndicatorControlItem(indicator);
         
         return indicator;
     }
     
-    // Create indicator control UI element
-    function createIndicatorControl(indicator) {
-        if (!indicator) return;
+    // Create indicator control UI item in the indicators list
+    function createIndicatorControlItem(indicator) {
+        if (!indicator || !activeIndicatorsList) return;
         
-        // Check if container exists, create if not
-        if (!indicatorsContainer) {
-            console.error('Indicators container not found');
-            return;
-        }
-        
-        // Create indicator control element
+        // Create indicator UI element
         const controlEl = document.createElement('div');
-        controlEl.className = 'indicator-control';
+        controlEl.className = 'indicator-item-control';
         controlEl.setAttribute('data-id', indicator.id);
         
-        const colorSquare = document.createElement('span');
-        colorSquare.className = 'indicator-color';
-        colorSquare.style.backgroundColor = indicator.options.color;
+        // Calculate the current indicator value for display
+        let currentValue = '-';
+        if (indicator.series && lastData.length > 0) {
+            // Try to get the most recent value
+            const lastPoint = indicator.series.dataByIndex(indicator.series.dataByIndex().length - 1, 0);
+            if (lastPoint && lastPoint.value !== undefined && lastPoint.value !== null) {
+                currentValue = lastPoint.value.toFixed(2);
+            }
+        }
         
+        // Color dot
+        const colorDot = document.createElement('span');
+        colorDot.className = 'indicator-color-dot';
+        if (indicator.options.color) {
+            colorDot.style.backgroundColor = indicator.options.color;
+        }
+        
+        // Name
         const nameEl = document.createElement('span');
         nameEl.className = 'indicator-name';
         nameEl.textContent = indicator.getName();
         
+        // Current value
+        const valueEl = document.createElement('span');
+        valueEl.className = 'indicator-value';
+        valueEl.textContent = currentValue;
+        valueEl.setAttribute('data-id', `${indicator.id}-value`);
+        
+        // Control buttons container
+        const controlButtons = document.createElement('div');
+        controlButtons.className = 'indicator-control-buttons';
+        
+        // Visibility toggle button
+        const visibilityBtn = document.createElement('button');
+        visibilityBtn.className = 'indicator-btn indicator-btn-visible';
+        visibilityBtn.title = 'Toggle visibility';
+        visibilityBtn.innerHTML = '<svg class="indicator-icon" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>';
+        
+        // Settings button
+        const settingsBtn = document.createElement('button');
+        settingsBtn.className = 'indicator-btn';
+        settingsBtn.title = 'Settings';
+        settingsBtn.innerHTML = '<svg class="indicator-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>';
+        
+        // Remove button
         const removeBtn = document.createElement('button');
-        removeBtn.className = 'indicator-remove';
-        removeBtn.innerHTML = '&times;';
-        removeBtn.title = 'Remove this indicator';
+        removeBtn.className = 'indicator-btn';
+        removeBtn.title = 'Remove';
+        removeBtn.innerHTML = '<svg class="indicator-icon" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
         
-        controlEl.appendChild(colorSquare);
-        controlEl.appendChild(nameEl);
-        controlEl.appendChild(removeBtn);
-        
-        // Add to container
-        indicatorsContainer.appendChild(controlEl);
-        
-        // Make indicators container visible if it was hidden
-        indicatorsContainer.style.display = 'flex';
-        
-        // Handle remove button click
-        removeBtn.addEventListener('click', function() {
-            // Remove the indicator
-            if (indicator.id in activeIndicators) {
-                indicator.remove();
-                delete activeIndicators[indicator.id];
-            }
+        // Add event listeners
+        visibilityBtn.addEventListener('click', function() {
+            const isVisible = indicator.visible;
+            indicator.setVisible(!isVisible);
             
-            // Remove the control element
-            controlEl.remove();
-            
-            // Hide container if no indicators left
-            if (Object.keys(activeIndicators).length === 0) {
-                indicatorsContainer.style.display = 'none';
+            // Toggle visual state
+            if (!isVisible) {
+                visibilityBtn.classList.remove('inactive');
+            } else {
+                visibilityBtn.classList.add('inactive');
             }
         });
+        
+        settingsBtn.addEventListener('click', function() {
+            // Show settings dialog for this indicator
+            editIndicator(indicator);
+        });
+        
+        removeBtn.addEventListener('click', function() {
+            // Remove the indicator
+            removeIndicator(indicator.id);
+            // Remove this control
+            controlEl.remove();
+            
+            // Hide the list container if no more indicators
+            if (Object.keys(activeIndicators).length === 0) {
+                activeIndicatorsList.style.display = 'none';
+            }
+        });
+        
+        // Assemble the UI
+        controlButtons.appendChild(visibilityBtn);
+        controlButtons.appendChild(settingsBtn);
+        controlButtons.appendChild(removeBtn);
+        
+        controlEl.appendChild(colorDot);
+        controlEl.appendChild(nameEl);
+        controlEl.appendChild(valueEl);
+        controlEl.appendChild(controlButtons);
+        
+        // Add to indicators list
+        activeIndicatorsList.appendChild(controlEl);
+        
+        // Show the indicators list if it was hidden
+        activeIndicatorsList.style.display = 'flex';
     }
     
     // Edit existing indicator
@@ -1350,7 +1459,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (sourceSelect) sourceSelect.value = indicator.params.source;
                     if (colorInput) colorInput.value = indicator.options.color;
                     break;
-                // Add more cases for other indicators
+                case 'bollinger':
+                    const bbLengthInput = document.getElementById('bb-length');
+                    const bbSourceSelect = document.getElementById('bb-source');
+                    const bbStdDevInput = document.getElementById('bb-stddev');
+                    const bbColorInput = document.getElementById('bb-color');
+                    const bbUpperColorInput = document.getElementById('bb-upper-color');
+                    const bbLowerColorInput = document.getElementById('bb-lower-color');
+                    
+                    if (bbLengthInput) bbLengthInput.value = indicator.params.length;
+                    if (bbSourceSelect) bbSourceSelect.value = indicator.params.source;
+                    if (bbStdDevInput) bbStdDevInput.value = indicator.params.stdDev;
+                    if (bbColorInput) bbColorInput.value = indicator.options.color;
+                    if (bbUpperColorInput) bbUpperColorInput.value = indicator.options.upperColor;
+                    if (bbLowerColorInput) bbLowerColorInput.value = indicator.options.lowerColor;
+                    break;
             }
             
             // Override Apply button action
@@ -1372,7 +1495,14 @@ document.addEventListener('DOMContentLoaded', function() {
                             params.source = document.getElementById('sma-source').value || 'close';
                             options.color = document.getElementById('sma-color').value || '#2962FF';
                             break;
-                        // Add more cases for other indicators
+                        case 'bollinger':
+                            params.length = parseInt(document.getElementById('bb-length').value) || 20;
+                            params.source = document.getElementById('bb-source').value || 'close';
+                            params.stdDev = parseFloat(document.getElementById('bb-stddev').value) || 2;
+                            options.color = document.getElementById('bb-color').value || '#FFA000';
+                            options.upperColor = document.getElementById('bb-upper-color').value || '#00B8D9';
+                            options.lowerColor = document.getElementById('bb-lower-color').value || '#FF5630';
+                            break;
                     }
                     
                     // Update indicator parameters and options
@@ -1387,20 +1517,41 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                     }
                     
-                    // Update the control label
-                    const controlElement = document.querySelector(`.indicator-control[data-id="${indicator.id}"]`);
-                    if (controlElement) {
-                        const labelElement = controlElement.querySelector('.indicator-label');
-                        if (labelElement) {
-                            labelElement.textContent = indicator.getName();
-                        }
-                    }
+                    // Update the control element
+                    updateIndicatorControlItem(indicator);
                     
                     // Close dialog
                     dialog.remove();
                 });
             }
         }, 100);
+    }
+    
+    // Update an existing indicator control item
+    function updateIndicatorControlItem(indicator) {
+        const controlEl = activeIndicatorsList.querySelector(`[data-id="${indicator.id}"]`);
+        if (!controlEl) return;
+        
+        // Update name
+        const nameEl = controlEl.querySelector('.indicator-name');
+        if (nameEl) {
+            nameEl.textContent = indicator.getName();
+        }
+        
+        // Update color dot
+        const colorDot = controlEl.querySelector('.indicator-color-dot');
+        if (colorDot && indicator.options.color) {
+            colorDot.style.backgroundColor = indicator.options.color;
+        }
+        
+        // Update value if available
+        const valueEl = controlEl.querySelector('.indicator-value');
+        if (valueEl && indicator.series) {
+            const lastPoint = indicator.series.dataByIndex(indicator.series.dataByIndex().length - 1, 0);
+            if (lastPoint && lastPoint.value !== undefined && lastPoint.value !== null) {
+                valueEl.textContent = lastPoint.value.toFixed(2);
+            }
+        }
     }
     
     // Remove indicator
@@ -1461,163 +1612,45 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateIndicators() {
         Object.values(activeIndicators).forEach(indicator => {
             indicator.update();
+            updateIndicatorControlItem(indicator);
         });
     }
 
-    // Add CSS for indicator UI
-    function addIndicatorStyles() {
-        const styleElement = document.createElement('style');
-        styleElement.textContent = `
-            .indicators-container {
-                position: absolute;
-                top: 10px;
-                right: 10px;
-                z-index: 2;
-                display: flex;
-                flex-direction: column;
-                gap: 5px;
-            }
-            
-            .indicator-control {
-                background: rgba(30, 30, 44, 0.7);
-                border-radius: 4px;
-                padding: 5px 10px;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                color: #a2a0b3;
-                font-size: 12px;
-            }
-            
-            .indicator-actions {
-                display: flex;
-                gap: 5px;
-            }
-            
-            .indicator-edit, .indicator-remove {
-                background: none;
-                border: none;
-                color: #a2a0b3;
-                cursor: pointer;
-                font-size: 14px;
-                padding: 0 5px;
-            }
-            
-            .indicator-edit:hover, .indicator-remove:hover {
-                color: white;
-            }
-            
-            .indicators-menu {
-                display: none;
-                position: absolute;
-                background: rgba(30, 30, 44, 0.9);
-                border-radius: 4px;
-                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-                padding: 5px 0;
-                min-width: 120px;
-                z-index: 1000;
-            }
-            
-            .indicators-menu.show {
-                display: block;
-            }
-            
-            .indicator-item {
-                padding: 8px 15px;
-                cursor: pointer;
-                color: #a2a0b3;
-            }
-            
-            .indicator-item:hover {
-                background: rgba(157, 113, 232, 0.15);
-                color: #9d71e8;
-            }
-            
-            .indicator-dialog {
-                position: fixed;
-                z-index: 1001;
-                background: rgba(30, 30, 44, 0.95);
-                border-radius: 6px;
-                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-                width: 300px;
-                overflow: hidden;
-            }
-            
-            .dialog-header {
-                background: rgba(40, 40, 54, 0.8);
-                padding: 10px 15px;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                cursor: move;
-            }
-            
-            .dialog-header h4 {
-                margin: 0;
-                font-size: 16px;
-                color: #e0e0e6;
-            }
-            
-            .dialog-close {
-                background: none;
-                border: none;
-                color: #a2a0b3;
-                font-size: 20px;
-                cursor: pointer;
-            }
-            
-            .dialog-content {
-                padding: 15px;
-            }
-            
-            .form-group {
-                margin-bottom: 15px;
-            }
-            
-            .form-group label {
-                display: block;
-                margin-bottom: 5px;
-                color: #a2a0b3;
-            }
-            
-            .form-group input, .form-group select {
-                width: 100%;
-                padding: 8px 10px;
-                background: rgba(20, 20, 34, 0.8);
-                border: 1px solid rgba(60, 60, 80, 0.5);
-                border-radius: 4px;
-                color: #e0e0e6;
-            }
-            
-            .dialog-footer {
-                padding: 10px 15px;
-                display: flex;
-                justify-content: flex-end;
-                gap: 10px;
-                background: rgba(40, 40, 54, 0.5);
-            }
-            
-            .btn-cancel, .btn-apply {
-                padding: 8px 15px;
-                border-radius: 4px;
-                cursor: pointer;
-                border: none;
-            }
-            
-            .btn-cancel {
-                background: rgba(60, 60, 80, 0.5);
-                color: #a2a0b3;
-            }
-            
-            .btn-apply {
-                background: #9d71e8;
-                color: white;
-            }
-        `;
+    // Update indicator values in real-time on crosshair move
+    function updateCrosshairIndicatorValues(param) {
+        if (!param.time || Object.keys(activeIndicators).length === 0) return;
         
-        document.head.appendChild(styleElement);
+        for (const id in activeIndicators) {
+            const indicator = activeIndicators[id];
+            const controlEl = activeIndicatorsList.querySelector(`[data-id="${id}"]`);
+            
+            if (!controlEl || !indicator.series) continue;
+            
+            const valueEl = controlEl.querySelector('.indicator-value');
+            if (!valueEl) continue;
+            
+            if (param.seriesPrices.has(indicator.series)) {
+                const price = param.seriesPrices.get(indicator.series);
+                valueEl.textContent = typeof price === 'number' ? price.toFixed(2) : '-';
+            }
+        }
+    }
+    
+    // Subscribe to crosshair move to update indicator values
+    if (chart) {
+        chart.subscribeCrosshairMove(param => {
+            updateCrosshairIndicatorValues(param);
+        });
     }
 
-    // Add the styles to the document
-    addIndicatorStyles();
+    // Add event listener for window resize
+    window.addEventListener('resize', function() {
+        if (chart) {
+            chart.resize(chartContainer.clientWidth, chartContainer.clientHeight);
+        }
+        
+        if (volumeChart) {
+            volumeChart.resize(volumeChartContainer.clientWidth, volumeChartContainer.clientHeight);
+        }
+    });
 });

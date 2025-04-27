@@ -47,6 +47,146 @@ body, html {
     gap: 5px;
 }
 
+/* Indicators dropdown menu */
+.indicators-dropdown {
+    position: relative;
+}
+
+.indicators-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 5px;
+    background: rgba(19, 18, 31, 0.9);
+    border-radius: 6px;
+    border: 1px solid rgba(46, 48, 53, 0.8);
+    min-width: 150px;
+    z-index: 101;
+    display: none;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.indicators-menu.show {
+    display: block;
+}
+
+.indicator-item {
+    padding: 8px 12px;
+    color: #a2a0b3;
+    cursor: pointer;
+    font-size: 12px;
+    border-bottom: 1px solid rgba(46, 48, 53, 0.8);
+}
+
+.indicator-item:last-child {
+    border-bottom: none;
+}
+
+.indicator-item:hover {
+    background: rgba(157, 113, 232, 0.15);
+    color: #e0e0e6;
+}
+
+/* Indicator dialog styles */
+.indicator-dialog {
+    position: fixed;
+    z-index: 1000;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(19, 18, 31, 0.95);
+    border-radius: 8px;
+    border: 1px solid rgba(46, 48, 53, 0.8);
+    min-width: 300px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
+.dialog-header {
+    background: rgba(30, 30, 44, 0.9);
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(46, 48, 53, 0.8);
+    cursor: move;
+}
+
+.dialog-header h4 {
+    margin: 0;
+    font-size: 16px;
+    color: #e0e0e6;
+}
+
+.dialog-close {
+    background: none;
+    border: none;
+    font-size: 18px;
+    color: #9d9ca3;
+    cursor: pointer;
+}
+
+.dialog-close:hover {
+    color: #e0e0e6;
+}
+
+.dialog-content {
+    padding: 15px;
+}
+
+.dialog-footer {
+    padding: 10px 15px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    border-top: 1px solid rgba(46, 48, 53, 0.8);
+}
+
+.btn-cancel, .btn-apply {
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 13px;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-cancel {
+    background: rgba(46, 48, 53, 0.8);
+    color: #9d9ca3;
+}
+
+.btn-apply {
+    background: #9d71e8;
+    color: white;
+}
+
+.form-group {
+    margin-bottom: 12px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #9d9ca3;
+    font-size: 13px;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 8px 10px;
+    background: rgba(30, 30, 44, 0.6);
+    border: 1px solid rgba(46, 48, 53, 0.8);
+    border-radius: 4px;
+    color: #e0e0e6;
+    font-size: 13px;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #9d71e8;
+}
+
 /* Volume chart */
 .volume-chart {
     height: 150px;
@@ -242,4 +382,97 @@ body, html {
     background: rgba(255, 255, 255, 0.1);
     border-radius: 3px;
     margin: 0 2px;
+}
+
+/* Active Indicators List - positioned at top left */
+.active-indicators-list {
+    position: absolute;
+    top: 90px; /* Position below the legend overlay */
+    left: 15px;
+    z-index: 110; /* Higher than other elements */
+    display: none; /* Initially hidden, will be shown when indicators are added */
+    flex-direction: column;
+    gap: 5px;
+    max-width: 250px;
+}
+
+.indicator-item-control {
+    display: flex;
+    align-items: center;
+    background: rgba(23, 24, 26, 0.5); /* More transparent background */
+    border: 1px solid rgba(46, 48, 53, 0.4); /* Lighter border */
+    border-radius: 4px;
+    padding: 4px 10px;
+    backdrop-filter: blur(5px);
+    opacity: 0.6; /* Default transparency */
+    transition: opacity 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.indicator-item-control:hover {
+    opacity: 1; /* Full opacity on hover */
+    background: rgba(23, 24, 26, 0.8); /* Darker background on hover */
+    border-color: rgba(46, 48, 53, 0.8); /* Darker border on hover */
+}
+
+.indicator-name {
+    color: #e0e0e6;
+    font-size: 12px;
+    font-weight: 500;
+    margin: 0 8px;
+}
+
+.indicator-value {
+    color: #9d9ca3;
+    font-size: 12px;
+    margin-right: 10px;
+}
+
+.indicator-control-buttons {
+    display: flex;
+    margin-left: auto;
+}
+
+.indicator-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9d9ca3;
+    padding: 0;
+    margin-left: 2px;
+    border-radius: 3px;
+    opacity: 0.7; /* Slightly transparent buttons */
+    transition: opacity 0.2s ease, background-color 0.2s ease;
+}
+
+.indicator-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #e0e0e6;
+    opacity: 1; /* Full opacity on hover */
+}
+
+.indicator-btn-visible {
+    color: #9d71e8;
+}
+
+.indicator-btn-visible.inactive {
+    color: #555;
+}
+
+.indicator-color-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 2px;
+}
+
+/* SVG icons for indicator controls */
+.indicator-icon {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
 }
