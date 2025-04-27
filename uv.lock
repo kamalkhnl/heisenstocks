@@ -266,6 +266,7 @@ name = "stonks"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "blinker" },
     { name = "dotenv" },
     { name = "flask" },
     { name = "flask-caching" },
@@ -276,6 +277,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "blinker", specifier = ">=1.9.0" },
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "flask", specifier = ">=3.1.0" },
     { name = "flask-caching", specifier = ">=2.0.0" },

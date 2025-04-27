@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}Update Data - Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid my-4">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Admin Navigation</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    <a href="{{ url_for('auth.admin') }}" class="list-group-item list-group-item-action">
+                        <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                    </a>
+                    <a href="{{ url_for('auth.admin_companies') }}" class="list-group-item list-group-item-action">
+                        <i class="fas fa-building me-2"></i> Manage Companies
+                    </a>
+                    <a href="{{ url_for('auth.admin_data') }}" class="list-group-item list-group-item-action active">
+                        <i class="fas fa-database me-2"></i> Update Stock Data
+                    </a>
+                    <a href="{{ url_for('auth.logout') }}" class="list-group-item list-group-item-action text-danger">
+                        <i class="fas fa-sign-out-alt me-2"></i> Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Data Update Center</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        This page allows you to update stock data from NEPSE. Select the data type and date range to fetch.
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header bg-success text-white">
+                                    <h6 class="mb-0">Stock Data Status</h6>
+                                </div>
+                                <div class="card-body">
+                                    {% if latest_stocks %}
+                                        <p class="text-success">
+                                            <i class="fas fa-check-circle me-2"></i>
+                                            Latest stock data from: {{ latest_stocks.strftime('%B %d, %Y') }}
+                                        </p>
+                                    {% else %}
+                                        <p class="text-danger">
+                                            <i class="fas fa-exclamation-triangle me-2"></i>
+                                            No stock data available
+                                        </p>
+                                    {% endif %}
+                                    
+                                    <form method="POST" action="{{ url_for('auth.update_stocks') }}" id="updateStocksForm">
+                                        <div class="mb-3">
+                                            <label for="stock_date" class="form-label">Date to fetch</label>
+                                            <input type="date" class="form-control" id="stock_date" name="date" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-success">
+                                            <i class="fas fa-sync me-2"></i> Update Stocks
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header bg-info text-white">
+                                    <h6 class="mb-0">Index Data Status</h6>
+                                </div>
+                                <div class="card-body">
+                                    {% if latest_indices %}
+                                        <p class="text-success">
+                                            <i class="fas fa-check-circle me-2"></i>
+                                            Latest index data from: {{ latest_indices.strftime('%B %d, %Y') }}
+                                        </p>
+                                    {% else %}
+                                        <p class="text-danger">
+                                            <i class="fas fa-exclamation-triangle me-2"></i>
+                                            No index data available
+                                        </p>
+                                    {% endif %}
+                                    
+                                    <form method="POST" action="{{ url_for('auth.update_indices') }}" id="updateIndicesForm">
+                                        <div class="mb-3">
+                                            <label for="indices_date" class="form-label">Date to fetch</label>
+                                            <input type="date" class="form-control" id="indices_date" name="date" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-info">
+                                            <i class="fas fa-sync me-2"></i> Update Indices
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card mb-4">
+                        <div class="card-header bg-warning">
+                            <h6 class="mb-0">Bulk Data Update</h6>
+                        </div>
+                        <div class="card-body">
+                            <form method="POST" action="{{ url_for('auth.bulk_update') }}" id="bulkUpdateForm">
+                                <div class="row">
+                                    <div class="col-md-5">
+                                        <div class="mb-3">
+                                            <label for="start_date" class="form-label">Start Date</label>
+                                            <input type="date" class="form-control" id="start_date" name="start_date" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <div class="mb-3">
+                                            <label for="end_date" class="form-label">End Date</label>
+                                            <input type="date" class="form-control" id="end_date" name="end_date" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <div class="mb-3">
+                                            <label for="data_type" class="form-label">Data Type</label>
+                                            <select class="form-select" id="data_type" name="data_type" required>
+                                                <option value="stocks">Stocks</option>
+                                                <option value="indices">Indices</option>
+                                                <option value="both">Both</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="confirmBulkUpdate" required>
+                                    <label class="form-check-label" for="confirmBulkUpdate">
+                                        I understand this may take a while to complete
+                                    </label>
+                                </div>
+                                <button type="submit" class="btn btn-warning">
+                                    <i class="fas fa-database me-2"></i> Start Bulk Update
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <div id="updateStatus" class="d-none">
+                        <div class="card">
+                            <div class="card-header bg-dark text-white">
+                                <h6 class="mb-0">Update Progress</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="progress mb-3">
+                                    <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                         role="progressbar" style="width: 0%"></div>
+                                </div>
+                                <div id="statusMessage" class="alert alert-info">
+                                    Preparing update...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+<script>
+    // Set default dates to today
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('stock_date').value = today;
+        document.getElementById('indices_date').value = today;
+        document.getElementById('end_date').value = today;
+        
+        // Set start date to 7 days ago
+        const lastWeek = new Date();
+        lastWeek.setDate(lastWeek.getDate() - 7);
+        document.getElementById('start_date').value = lastWeek.toISOString().split('T')[0];
+        
+        // Handle form submissions
+        document.getElementById('updateStocksForm').addEventListener('submit', showUpdateStatus);
+        document.getElementById('updateIndicesForm').addEventListener('submit', showUpdateStatus);
+        document.getElementById('bulkUpdateForm').addEventListener('submit', showUpdateStatus);
+    });
+    
+    function showUpdateStatus(e) {
+        // Don't show for bulk updates yet - they'll be implemented with proper progress tracking
+        if (e.target.id === 'bulkUpdateForm') {
+            return true;
+        }
+        
+        // Show the update status
+        document.getElementById('updateStatus').classList.remove('d-none');
+        
+        // Simulate progress (in a real implementation, you'd use AJAX to track actual progress)
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += 5;
+            document.getElementById('progressBar').style.width = progress + '%';
+            
+            if (progress >= 100) {
+                clearInterval(interval);
+                document.getElementById('statusMessage').innerHTML = 
+                    '<i class="fas fa-check-circle me-2"></i> Update completed successfully!';
+                document.getElementById('statusMessage').classList.remove('alert-info');
+                document.getElementById('statusMessage').classList.add('alert-success');
+            } else {
+                document.getElementById('statusMessage').innerText = `Updating... ${progress}% complete`;
+            }
+        }, 300);
+        
+        return true;
+    }
+</script>
+{% endblock %}

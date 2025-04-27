@@ -165,6 +165,12 @@ def create_app():
     app = Flask(__name__)
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'heisenstocks-uncertainty-principle')
     
+    # Configure session to use filesystem
+    app.config['SESSION_TYPE'] = 'filesystem'
+    app.config['SESSION_PERMANENT'] = True
+    app.config['PERMANENT_SESSION_LIFETIME'] = 60 * 60 * 24 * 7  # 7 days
+    app.config['SESSION_USE_SIGNER'] = True
+    
     # Enable debug mode if set in environment
     if os.environ.get('FLASK_DEBUG') == '1':
         app.debug = True
@@ -200,11 +206,33 @@ def create_app():
     
     @login_manager.user_loader
     def load_user(user_id):
-        db = get_db()
-        user_data = db.admin.users.find_one({'_id': user_id})
-        if user_data:
-            return User(user_data)
-        return None
+        try:
+            db = get_db()
+            # Get the users collection name from environment variable
+            users_collection = os.getenv('USERS_COLLECTION', 'users')
+            
+            # Try to convert the user_id to ObjectId if it's in the right format
+            from bson import ObjectId
+            try:
+                if ObjectId.is_valid(user_id):
+                    object_id = ObjectId(user_id)
+                    user_data = db[users_collection].find_one({'_id': object_id})
+                else:
+                    # Fallback: try looking up by string ID
+                    user_data = db[users_collection].find_one({'_id': user_id})
+            except:
+                # If conversion fails, try as string
+                user_data = db[users_collection].find_one({'_id': user_id})
+                
+            if user_data:
+                print(f"Successfully loaded user: {user_data['username']}")
+                return User(user_data)
+            else:
+                print(f"Failed to load user with ID: {user_id}")
+                return None
+        except Exception as e:
+            print(f"Error in user loader: {e}")
+            return None
     
     # Close database connection when application context ends
     @app.teardown_appcontext

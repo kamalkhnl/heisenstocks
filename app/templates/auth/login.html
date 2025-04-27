@@ -3,68 +3,37 @@
 {% block title %}Login - Heisenstocks{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-dark text-white py-3">
-                <h5 class="mb-0">
-                    <i class="fas fa-sign-in-alt me-2"></i>Admin Login
-                </h5>
-            </div>
-            <div class="card-body p-4">
-                <div class="text-center mb-4">
-                    <i class="fas fa-atom fa-3x text-primary mb-3"></i>
-                    <h4 class="mb-1">Welcome to Heisenstocks</h4>
-                    <p class="text-muted">Please login to access the admin panel</p>
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Admin Login</h3>
                 </div>
-                
-                <form method="POST" novalidate>
-                    {{ form.hidden_tag() }}
-                    
-                    <div class="mb-3">
-                        {{ form.username.label(class="form-label") }}
-                        {{ form.username(class="form-control", placeholder="Enter your username") }}
-                        {% if form.username.errors %}
-                        <div class="invalid-feedback d-block">
-                            {% for error in form.username.errors %}
-                            <span>{{ error }}</span>
+                <div class="card-body">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }}">{{ message }}</div>
                             {% endfor %}
-                        </div>
                         {% endif %}
-                    </div>
+                    {% endwith %}
                     
-                    <div class="mb-3">
-                        {{ form.password.label(class="form-label") }}
-                        {{ form.password(class="form-control", placeholder="Enter your password") }}
-                        {% if form.password.errors %}
-                        <div class="invalid-feedback d-block">
-                            {% for error in form.password.errors %}
-                            <span>{{ error }}</span>
-                            {% endfor %}
+                    <form method="POST" action="{{ url_for('auth.login') }}">
+                        {{ form.hidden_tag() }}
+                        <div class="form-group mb-3">
+                            {{ form.username.label(class="form-label") }}
+                            {{ form.username(class="form-control", placeholder="Enter username") }}
                         </div>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="d-grid gap-2 mt-4">
-                        {{ form.submit(class="btn btn-primary") }}
-                    </div>
-                </form>
-                
-                <div class="mt-4 text-center">
-                    <p class="mb-0 text-muted small">
-                        <i class="fas fa-lock me-1"></i>
-                        Secure administration area. Unauthorized access is prohibited.
-                    </p>
+                        <div class="form-group mb-3">
+                            {{ form.password.label(class="form-label") }}
+                            {{ form.password(class="form-control", placeholder="Enter password") }}
+                        </div>
+                        <div class="d-grid gap-2">
+                            {{ form.submit(class="btn btn-primary btn-block") }}
+                        </div>
+                    </form>
                 </div>
-            </div>
-        </div>
-        
-        <div class="card border-0 shadow-sm mt-4">
-            <div class="card-body p-3">
-                <blockquote class="blockquote mb-0 text-center small">
-                    <p>"The most exciting phrase to hear in science, the one that heralds new discoveries, is not 'Eureka!' but 'That's funny...'"</p>
-                    <footer class="blockquote-footer">Isaac Asimov</footer>
-                </blockquote>
             </div>
         </div>
     </div>
