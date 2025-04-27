@@ -1,0 +1,370 @@
+Starting update for NEPSE indices data on 2025-04-28
+Starting fetch and insert of new data for all 17 indices...
+Today's date: 2025-04-28
+Connected to MongoDB collection: nepse-indices
+
+================================================================================
+Processing index 1: Banking Subindex
+================================================================================
+Retrieved latest date from DB: 2025-04-27
+Latest data available for index Banking Subindex: 2025-04-27
+Current date: 2025-04-28
+Latest data in database: 2025-04-27
+Checking for most recent data...
+Found 1 recent records for Banking Subindex
+Recent data found! Sample of the newest records:
+Record 1: 2025-04-27
+No new data found that's newer than what's in the database.
+Checking for any data between 2025-04-27 and 2025-04-28...
+Found 1 records in date range for Banking Subindex
+Sample of records in the range:
+Record 1: 2025-04-27
+No new data found in the date range search.
+No new data was fetched for Banking Subindex.
+No new data available for Banking Subindex
+
+================================================================================
+Processing index 2: Development Bank Index
+================================================================================
+Retrieved latest date from DB: 2025-04-27
+Latest data available for index Development Bank Index: 2025-04-27
+Current date: 2025-04-28
+Latest data in database: 2025-04-27
+Checking for most recent data...
+Found 1 recent records for Development Bank Index
+Recent data found! Sample of the newest records:
+Record 1: 2025-04-27
+No new data found that's newer than what's in the database.
+Checking for any data between 2025-04-27 and 2025-04-28...
+Found 1 records in date range for Development Bank Index
+Sample of records in the range:
+Record 1: 2025-04-27
+No new data found in the date range search.
+No new data was fetched for Development Bank Index.
+No new data available for Development Bank Index
+
+================================================================================
+Processing index 3: Finance Index
+================================================================================
+Retrieved latest date from DB: 2025-04-27
+Latest data available for index Finance Index: 2025-04-27
+Current date: 2025-04-28
+Latest data in database: 2025-04-27
+Checking for most recent data...
+Found 1 recent records for Finance Index
+Recent data found! Sample of the newest records:
+Record 1: 2025-04-27
+No new data found that's newer than what's in the database.
+Checking for any data between 2025-04-27 and 2025-04-28...
+Found 1 records in date range for Finance Index
+Sample of records in the range:
+Record 1: 2025-04-27
+No new data found in the date range search.
+No new data was fetched for Finance Index.
+No new data available for Finance Index
+
+================================================================================
+Processing index 4: Float Index
+================================================================================
+Retrieved latest date from DB: 2025-04-27
+Latest data available for index Float Index: 2025-04-27
+Current date: 2025-04-28
+Latest data in database: 2025-04-27
+Checking for most recent data...
+Found 1 recent records for Float Index
+Recent data found! Sample of the newest records:
+Record 1: 2025-04-27
+No new data found that's newer than what's in the database.
+Checking for any data between 2025-04-27 and 2025-04-28...
+Found 1 records in date range for Float Index
+Sample of records in the range:
+Record 1: 2025-04-27
+No new data found in the date range search.
+No new data was fetched for Float Index.
+No new data available for Float Index
+
+================================================================================
+Processing index 5: Hotels And Tourism
+================================================================================
+Retrieved latest date from DB: 2025-04-27
+Latest data available for index Hotels And Tourism: 2025-04-27
+Current date: 2025-04-28
+Latest data in database: 2025-04-27
+Checking for most recent data...
+Found 1 recent records for Hotels And Tourism
+Recent data found! Sample of the newest records:
+Record 1: 2025-04-27
+No new data found that's newer than what's in the database.
+Checking for any data between 2025-04-27 and 2025-04-28...
+Found 1 records in date range for Hotels And Tourism
+Sample of records in the range:
+Record 1: 2025-04-27
+No new data found in the date range search.
+No new data was fetched for Hotels And Tourism.
+No new data available for Hotels And Tourism
+
+================================================================================
+Processing index 6: HydroPower Index
+================================================================================
+Retrieved latest date from DB: 2025-04-27
+Latest data available for index HydroPower Index: 2025-04-27
+Current date: 2025-04-28
+Latest data in database: 2025-04-27
+Checking for most recent data...
+Found 1 recent records for HydroPower Index
+Recent data found! Sample of the newest records:
+Record 1: 2025-04-27
+No new data found that's newer than what's in the database.
+Checking for any data between 2025-04-27 and 2025-04-28...
+Found 1 records in date range for HydroPower Index
+Sample of records in the range:
+Record 1: 2025-04-27
+No new data found in the date range search.
+No new data was fetched for HydroPower Index.
+No new data available for HydroPower Index
+
+================================================================================
+Processing index 8: Life Insurance
+================================================================================
+Retrieved latest date from DB: 2025-04-27
+Latest data available for index Life Insurance: 2025-04-27
+Current date: 2025-04-28
+Latest data in database: 2025-04-27
+Checking for most recent data...
+Found 1 recent records for Life Insurance
+Recent data found! Sample of the newest records:
+Record 1: 2025-04-27
+No new data found that's newer than what's in the database.
+Checking for any data between 2025-04-27 and 2025-04-28...
+Found 1 records in date range for Life Insurance
+Sample of records in the range:
+Record 1: 2025-04-27
+No new data found in the date range search.
+No new data was fetched for Life Insurance.
+No new data available for Life Insurance
+
+================================================================================
+Processing index 9: Manufacturing And Processing
+================================================================================
+Retrieved latest date from DB: 2025-04-27
+Latest data available for index Manufacturing And Processing: 2025-04-27
+Current date: 2025-04-28
+Latest data in database: 2025-04-27
+Checking for most recent data...
+Found 1 recent records for Manufacturing And Processing
+Recent data found! Sample of the newest records:
+Record 1: 2025-04-27
+No new data found that's newer than what's in the database.
+Checking for any data between 2025-04-27 and 2025-04-28...
+Found 1 records in date range for Manufacturing And Processing
+Sample of records in the range:
+Record 1: 2025-04-27
+No new data found in the date range search.
+No new data was fetched for Manufacturing And Processing.
+No new data available for Manufacturing And Processing
+
+================================================================================
+Processing index 10: Microfinance Index
+================================================================================
+Retrieved latest date from DB: 2025-04-27
+Latest data available for index Microfinance Index: 2025-04-27
+Current date: 2025-04-28
+Latest data in database: 2025-04-27
+Checking for most recent data...
+Found 1 recent records for Microfinance Index
+Recent data found! Sample of the newest records:
+Record 1: 2025-04-27
+No new data found that's newer than what's in the database.
+Checking for any data between 2025-04-27 and 2025-04-28...
+Found 1 records in date range for Microfinance Index
+Sample of records in the range:
+Record 1: 2025-04-27
+No new data found in the date range search.
+No new data was fetched for Microfinance Index.
+No new data available for Microfinance Index
+
+================================================================================
+Processing index 11: Mutual Fund
+================================================================================
+Retrieved latest date from DB: 2025-04-27
+Latest data available for index Mutual Fund: 2025-04-27
+Current date: 2025-04-28
+Latest data in database: 2025-04-27
+Checking for most recent data...
+Found 1 recent records for Mutual Fund
+Recent data found! Sample of the newest records:
+Record 1: 2025-04-27
+No new data found that's newer than what's in the database.
+Checking for any data between 2025-04-27 and 2025-04-28...
+Found 1 records in date range for Mutual Fund
+Sample of records in the range:
+Record 1: 2025-04-27
+No new data found in the date range search.
+No new data was fetched for Mutual Fund.
+No new data available for Mutual Fund
+
+================================================================================
+Processing index 12: NEPSE Index
+================================================================================
+Retrieved latest date from DB: 2025-04-27
+Latest data available for index NEPSE Index: 2025-04-27
+Current date: 2025-04-28
+Latest data in database: 2025-04-27
+Checking for most recent data...
+Found 1 recent records for NEPSE Index
+Recent data found! Sample of the newest records:
+Record 1: 2025-04-27
+No new data found that's newer than what's in the database.
+Checking for any data between 2025-04-27 and 2025-04-28...
+Found 1 records in date range for NEPSE Index
+Sample of records in the range:
+Record 1: 2025-04-27
+No new data found in the date range search.
+No new data was fetched for NEPSE Index.
+No new data available for NEPSE Index
+
+================================================================================
+Processing index 13: Non Life Insurance
+================================================================================
+Retrieved latest date from DB: 2025-04-27
+Latest data available for index Non Life Insurance: 2025-04-27
+Current date: 2025-04-28
+Latest data in database: 2025-04-27
+Checking for most recent data...
+Found 1 recent records for Non Life Insurance
+Recent data found! Sample of the newest records:
+Record 1: 2025-04-27
+No new data found that's newer than what's in the database.
+Checking for any data between 2025-04-27 and 2025-04-28...
+Found 1 records in date range for Non Life Insurance
+Sample of records in the range:
+Record 1: 2025-04-27
+No new data found in the date range search.
+No new data was fetched for Non Life Insurance.
+No new data available for Non Life Insurance
+
+================================================================================
+Processing index 14: Others Index
+================================================================================
+Retrieved latest date from DB: 2025-04-27
+Latest data available for index Others Index: 2025-04-27
+Current date: 2025-04-28
+Latest data in database: 2025-04-27
+Checking for most recent data...
+Found 1 recent records for Others Index
+Recent data found! Sample of the newest records:
+Record 1: 2025-04-27
+No new data found that's newer than what's in the database.
+Checking for any data between 2025-04-27 and 2025-04-28...
+Found 1 records in date range for Others Index
+Sample of records in the range:
+Record 1: 2025-04-27
+No new data found in the date range search.
+No new data was fetched for Others Index.
+No new data available for Others Index
+
+================================================================================
+Processing index 15: Sensitive Float Index
+================================================================================
+Retrieved latest date from DB: 2025-04-27
+Latest data available for index Sensitive Float Index: 2025-04-27
+Current date: 2025-04-28
+Latest data in database: 2025-04-27
+Checking for most recent data...
+Found 1 recent records for Sensitive Float Index
+Recent data found! Sample of the newest records:
+Record 1: 2025-04-27
+No new data found that's newer than what's in the database.
+Checking for any data between 2025-04-27 and 2025-04-28...
+Found 1 records in date range for Sensitive Float Index
+Sample of records in the range:
+Record 1: 2025-04-27
+No new data found in the date range search.
+No new data was fetched for Sensitive Float Index.
+No new data available for Sensitive Float Index
+
+================================================================================
+Processing index 16: Sensitive Index
+================================================================================
+Retrieved latest date from DB: 2025-04-27
+Latest data available for index Sensitive Index: 2025-04-27
+Current date: 2025-04-28
+Latest data in database: 2025-04-27
+Checking for most recent data...
+Found 1 recent records for Sensitive Index
+Recent data found! Sample of the newest records:
+Record 1: 2025-04-27
+No new data found that's newer than what's in the database.
+Checking for any data between 2025-04-27 and 2025-04-28...
+Found 1 records in date range for Sensitive Index
+Sample of records in the range:
+Record 1: 2025-04-27
+No new data found in the date range search.
+No new data was fetched for Sensitive Index.
+No new data available for Sensitive Index
+
+================================================================================
+Processing index 17: Trading Index
+================================================================================
+Retrieved latest date from DB: 2025-04-27
+Latest data available for index Trading Index: 2025-04-27
+Current date: 2025-04-28
+Latest data in database: 2025-04-27
+Checking for most recent data...
+Found 1 recent records for Trading Index
+Recent data found! Sample of the newest records:
+Record 1: 2025-04-27
+No new data found that's newer than what's in the database.
+Checking for any data between 2025-04-27 and 2025-04-28...
+Found 1 records in date range for Trading Index
+Sample of records in the range:
+Record 1: 2025-04-27
+No new data found in the date range search.
+No new data was fetched for Trading Index.
+No new data available for Trading Index
+
+================================================================================
+Processing index 18: Investment
+================================================================================
+Retrieved latest date from DB: 2025-04-27
+Latest data available for index Investment: 2025-04-27
+Current date: 2025-04-28
+Latest data in database: 2025-04-27
+Checking for most recent data...
+Found 1 recent records for Investment
+Recent data found! Sample of the newest records:
+Record 1: 2025-04-27
+No new data found that's newer than what's in the database.
+Checking for any data between 2025-04-27 and 2025-04-28...
+Found 1 records in date range for Investment
+Sample of records in the range:
+Record 1: 2025-04-27
+No new data found in the date range search.
+No new data was fetched for Investment.
+No new data available for Investment
+
+
+Fetch and Insert Summary:
+--------------------------------------------------
+Banking Subindex: WARNING - No new data available
+Development Bank Index: WARNING - No new data available
+Finance Index: WARNING - No new data available
+Float Index: WARNING - No new data available
+Hotels And Tourism: WARNING - No new data available
+HydroPower Index: WARNING - No new data available
+Life Insurance: WARNING - No new data available
+Manufacturing And Processing: WARNING - No new data available
+Microfinance Index: WARNING - No new data available
+Mutual Fund: WARNING - No new data available
+NEPSE Index: WARNING - No new data available
+Non Life Insurance: WARNING - No new data available
+Others Index: WARNING - No new data available
+Sensitive Float Index: WARNING - No new data available
+Sensitive Index: WARNING - No new data available
+Trading Index: WARNING - No new data available
+Investment: WARNING - No new data available
+
+Indices with new data: 0
+Indices with no new data: 17
+Indices with errors: 0
+Total indices processed: 17

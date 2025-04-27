@@ -11,6 +11,12 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 from bson import ObjectId
 from datetime import datetime
+import subprocess
+import threading
+import queue
+import json
+import sys
+from flask import Response, stream_with_context
 
 auth = Blueprint('auth', __name__)
 
@@ -292,3 +298,763 @@ def bulk_update():
     flash(f'Bulk update initiated for {data_type} from {start_date} to {end_date}. This will be processed in the background.', 'info')
     
     return redirect(url_for('auth.admin_data'))
+
+# Helper function to run a script and capture output in real-time
+def run_script_with_live_output(script_path, output_queue):
+    """
+    Runs a Python script and captures its output in real-time,
+    sending it to a queue for streaming to the client.
+    """
+    try:
+        # Log the script path being executed
+        output_queue.put({
+            'progress': 5,
+            'log': f"Attempting to run script: {script_path}"
+        })
+
+        # Create a copy of the current environment variables
+        env = os.environ.copy()
+        
+        # Ensure the PYTHONPATH includes the app directory
+        python_path = env.get('PYTHONPATH', '')
+        app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if app_dir not in python_path:
+            if python_path:
+                env['PYTHONPATH'] = f"{python_path}{os.pathsep}{app_dir}"
+            else:
+                env['PYTHONPATH'] = app_dir
+        
+        # Log the environment setup
+        output_queue.put({
+            'log': f"Setting up environment with PYTHONPATH: {env.get('PYTHONPATH')}"
+        })
+        
+        # Start the process with the enhanced environment
+        process = subprocess.Popen(
+            [sys.executable, script_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            universal_newlines=True,
+            env=env
+        )
+        
+        # Send initial progress
+        output_queue.put({
+            'progress': 10,
+            'log': f"Starting process: {os.path.basename(script_path)}"
+        })
+        
+        # Track completed percentage
+        line_count = 0
+        progress = 10
+        
+        # Read output line by line as it becomes available
+        for line in iter(process.stdout.readline, ''):
+            line_count += 1
+            # Update progress estimation (maxes out at 95%)
+            if line_count % 10 == 0 and progress < 95:
+                progress += 1
+                output_queue.put({'progress': progress})
+            
+            # Forward the output line to the queue
+            output_queue.put({'log': line.rstrip()})
+        
+        # Wait for process to complete
+        process.stdout.close()
+        return_code = process.wait()
+        
+        if return_code == 0:
+            output_queue.put({
+                'status': 'complete',
+                'progress': 100,
+                'log': f"Process completed successfully"
+            })
+        else:
+            output_queue.put({
+                'status': 'error',
+                'progress': 100,
+                'log': f"Process exited with code {return_code}"
+            })
+    
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        output_queue.put({
+            'status': 'error',
+            'progress': 0,
+            'log': f"Error running script: {str(e)}\n{error_details}"
+        })
+
+# Routes for streaming updates using Server-Sent Events (SSE)
+@auth.route('/admin/update-indices')
+@login_required
+def update_indices_stream():
+    """Stream the indices update process to the client using SSE"""
+    # Check if user is admin
+    if not current_user.is_admin:
+        return jsonify({'error': 'Access denied. Admin privileges required.'}), 403
+    
+    # Get the path to the fetch_new_indices_data.py script
+    script_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+        'scripts', 
+        'fetch_new_indices_data.py'
+    )
+    
+    # Debug the script path to make sure it exists
+    print(f"Looking for script at path: {script_path}")
+    if not os.path.isfile(script_path):
+        print(f"WARNING: Script file not found at {script_path}")
+        # Try alternative path relative to current working directory
+        alt_script_path = os.path.join('app', 'scripts', 'fetch_new_indices_data.py')
+        if os.path.isfile(alt_script_path):
+            script_path = alt_script_path
+            print(f"Found script at alternative path: {script_path}")
+        else:
+            print(f"ERROR: Script not found at alternative path either: {alt_script_path}")
+            return jsonify({"error": "Script file not found"}), 404
+    
+    # Function to generate SSE events
+    def generate():
+        output_queue = queue.Queue()
+        
+        # Start the script in a separate thread
+        thread = threading.Thread(
+            target=run_script_with_live_output,
+            args=(script_path, output_queue)
+        )
+        thread.daemon = True
+        thread.start()
+        
+        # Stream events from the queue to the client
+        try:
+            while True:
+                try:
+                    # Get data from the queue with a timeout
+                    data = output_queue.get(timeout=90)
+                    
+                    # Yield the data as an SSE event
+                    yield f"data: {json.dumps(data)}\n\n"
+                    
+                    # Check if the process is complete or had an error
+                    if data.get('status') in ['complete', 'error']:
+                        break
+                    
+                except queue.Empty:
+                    # If no output for 90 seconds, send a keepalive event
+                    yield f"data: {json.dumps({'log': 'Still processing...'})}\n\n"
+                    
+        except GeneratorExit:
+            # Client disconnected
+            pass
+    
+    # Return the streaming response
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no'  # Disable proxy buffering
+        }
+    )
+
+@auth.route('/admin/update-stocks')
+@login_required
+def update_stocks_stream():
+    """Stream the stocks update process to the client using SSE"""
+    # Check if user is admin
+    if not current_user.is_admin:
+        return jsonify({'error': 'Access denied. Admin privileges required.'}), 403
+    
+    # Get the path to the fetch_new_stock_data.py script
+    script_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+        'scripts', 
+        'fetch_new_stock_data.py'
+    )
+    
+    # Debug the script path to make sure it exists
+    print(f"Looking for script at path: {script_path}")
+    if not os.path.isfile(script_path):
+        print(f"WARNING: Script file not found at {script_path}")
+        # Try alternative path relative to current working directory
+        alt_script_path = os.path.join('app', 'scripts', 'fetch_new_stock_data.py')
+        if os.path.isfile(alt_script_path):
+            script_path = alt_script_path
+            print(f"Found script at alternative path: {script_path}")
+        else:
+            print(f"ERROR: Script not found at alternative path either: {alt_script_path}")
+            return jsonify({"error": "Script file not found"}), 404
+    
+    # Function to generate SSE events
+    def generate():
+        output_queue = queue.Queue()
+        
+        # Start the script in a separate thread
+        thread = threading.Thread(
+            target=run_script_with_live_output,
+            args=(script_path, output_queue)
+        )
+        thread.daemon = True
+        thread.start()
+        
+        # Stream events from the queue to the client
+        try:
+            while True:
+                try:
+                    # Get data from the queue with a timeout
+                    data = output_queue.get(timeout=90)
+                    
+                    # Yield the data as an SSE event
+                    yield f"data: {json.dumps(data)}\n\n"
+                    
+                    # Check if the process is complete or had an error
+                    if data.get('status') in ['complete', 'error']:
+                        break
+                    
+                except queue.Empty:
+                    # If no output for 90 seconds, send a keepalive event
+                    yield f"data: {json.dumps({'log': 'Still processing...'})}\n\n"
+                    
+        except GeneratorExit:
+            # Client disconnected
+            pass
+    
+    # Return the streaming response
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no'  # Disable proxy buffering
+        }
+    )
+
+@auth.route('/admin/test-script')
+@login_required
+def test_script_stream():
+    """A test route to verify script execution works"""
+    # Check if user is admin
+    if not current_user.is_admin:
+        return jsonify({'error': 'Access denied. Admin privileges required.'}), 403
+    
+    # Get the path to the test script
+    script_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+        'scripts', 
+        'test_script.py'
+    )
+    
+    # Debug the script path to make sure it exists
+    print(f"Looking for test script at path: {script_path}")
+    if not os.path.isfile(script_path):
+        print(f"WARNING: Test script file not found at {script_path}")
+        # Try alternative path relative to current working directory
+        alt_script_path = os.path.join('app', 'scripts', 'test_script.py')
+        if os.path.isfile(alt_script_path):
+            script_path = alt_script_path
+            print(f"Found test script at alternative path: {script_path}")
+        else:
+            print(f"ERROR: Test script not found at alternative path either: {alt_script_path}")
+            return jsonify({"error": "Test script file not found"}), 404
+    
+    # Function to generate SSE events
+    def generate():
+        output_queue = queue.Queue()
+        
+        # Start the script in a separate thread
+        thread = threading.Thread(
+            target=run_script_with_live_output,
+            args=(script_path, output_queue)
+        )
+        thread.daemon = True
+        thread.start()
+        
+        # Stream events from the queue to the client
+        try:
+            while True:
+                try:
+                    # Get data from the queue with a timeout
+                    data = output_queue.get(timeout=90)
+                    
+                    # Yield the data as an SSE event
+                    yield f"data: {json.dumps(data)}\n\n"
+                    
+                    # Check if the process is complete or had an error
+                    if data.get('status') in ['complete', 'error']:
+                        break
+                    
+                except queue.Empty:
+                    # If no output for 90 seconds, send a keepalive event
+                    yield f"data: {json.dumps({'log': 'Still processing...'})}\n\n"
+                    
+        except GeneratorExit:
+            # Client disconnected
+            pass
+    
+    # Return the streaming response
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no'  # Disable proxy buffering
+        }
+    )
+
+# Direct script execution routes (non-streaming version)
+@auth.route('/admin/run-indices-update', methods=['POST'])
+@login_required
+def run_indices_update():
+    """Run the indices update script directly"""
+    # Check if user is admin
+    if not current_user.is_admin:
+        return jsonify({'error': 'Access denied. Admin privileges required.'}), 403
+    
+    # Get the path to the script
+    script_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+        'scripts', 
+        'fetch_new_indices_data.py'
+    )
+    
+    # Check if script exists
+    if not os.path.isfile(script_path):
+        alt_script_path = os.path.join('app', 'scripts', 'fetch_new_indices_data.py')
+        if os.path.isfile(alt_script_path):
+            script_path = alt_script_path
+        else:
+            return jsonify({"error": "Script file not found"}), 404
+    
+    try:
+        # Run the script and capture output
+        result = subprocess.run(
+            [sys.executable, script_path],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        
+        # Return the output as JSON
+        return jsonify({
+            'success': result.returncode == 0,
+            'stdout': result.stdout,
+            'stderr': result.stderr,
+            'returncode': result.returncode
+        })
+    
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+@auth.route('/admin/run-stocks-update', methods=['POST'])
+@login_required
+def run_stocks_update():
+    """Run the stocks update script directly"""
+    # Check if user is admin
+    if not current_user.is_admin:
+        return jsonify({'error': 'Access denied. Admin privileges required.'}), 403
+    
+    # Get the path to the script
+    script_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+        'scripts', 
+        'fetch_new_stock_data.py'
+    )
+    
+    # Check if script exists
+    if not os.path.isfile(script_path):
+        alt_script_path = os.path.join('app', 'scripts', 'fetch_new_stock_data.py')
+        if os.path.isfile(alt_script_path):
+            script_path = alt_script_path
+        else:
+            return jsonify({"error": "Script file not found"}), 404
+    
+    try:
+        # Run the script and capture output
+        result = subprocess.run(
+            [sys.executable, script_path],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        
+        # Return the output as JSON
+        return jsonify({
+            'success': result.returncode == 0,
+            'stdout': result.stdout,
+            'stderr': result.stderr,
+            'returncode': result.returncode
+        })
+    
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+@auth.route('/admin/run-test-script', methods=['POST'])
+@login_required
+def run_test_script():
+    """Run the test script directly"""
+    try:
+        # Check if user is admin
+        if not current_user.is_admin:
+            return jsonify({'error': 'Access denied. Admin privileges required.'}), 403
+        
+        # Get the path to the script
+        script_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+            'scripts', 
+            'test_script.py'
+        )
+        
+        # Check if script exists
+        if not os.path.isfile(script_path):
+            alt_script_path = os.path.join('app', 'scripts', 'test_script.py')
+            if os.path.isfile(alt_script_path):
+                script_path = alt_script_path
+            else:
+                return jsonify({"success": False, "error": "Script file not found"}), 404
+        
+        print(f"Running test script at: {script_path}")
+        
+        # Run the script and capture output
+        result = subprocess.run(
+            [sys.executable, script_path],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        
+        # Return the output as JSON
+        return jsonify({
+            'success': result.returncode == 0,
+            'stdout': result.stdout,
+            'stderr': result.stderr,
+            'returncode': result.returncode
+        })
+    
+    except Exception as e:
+        import traceback
+        error_traceback = traceback.format_exc()
+        print(f"Error running test script: {str(e)}\n{error_traceback}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': error_traceback
+        }), 500
+
+@auth.route('/admin/run-indices', methods=['POST'])
+@login_required
+def run_indices():
+    """Run the indices update script directly"""
+    # Check if user is admin
+    if not current_user.is_admin:
+        return jsonify({'success': False, 'error': 'Access denied. Admin privileges required.'}), 403
+    
+    try:
+        # Get the path to the script
+        script_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+            'scripts', 
+            'fetch_new_indices_data.py'
+        )
+        
+        # Check if script exists
+        if not os.path.isfile(script_path):
+            alt_script_path = os.path.join('app', 'scripts', 'fetch_new_indices_data.py')
+            if os.path.isfile(alt_script_path):
+                script_path = alt_script_path
+            else:
+                return jsonify({"success": False, "error": "Script file not found"}), 404
+        
+        print(f"Running indices update script at: {script_path}")
+        
+        # Create a temporary file to capture output
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w+', delete=False) as temp:
+            temp_path = temp.name
+        
+        # Run the script and redirect output to the temporary file
+        command = f"{sys.executable} {script_path} > {temp_path} 2>&1"
+        process = subprocess.run(command, shell=True)
+        
+        # Read the output from the temporary file
+        with open(temp_path, 'r') as f:
+            output = f.read()
+        
+        # Clean up the temporary file
+        os.unlink(temp_path)
+        
+        # Return the output as JSON
+        return jsonify({
+            'success': process.returncode == 0,
+            'stdout': output,
+            'stderr': "",
+            'returncode': process.returncode
+        })
+    
+    except Exception as e:
+        import traceback
+        error_traceback = traceback.format_exc()
+        print(f"Error running indices update script: {str(e)}\n{error_traceback}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': error_traceback
+        }), 500
+
+@auth.route('/admin/run-stocks', methods=['POST'])
+@login_required
+def run_stocks():
+    """Run the stocks update script directly"""
+    # Check if user is admin
+    if not current_user.is_admin:
+        return jsonify({'success': False, 'error': 'Access denied. Admin privileges required.'}), 403
+    
+    try:
+        # Get the path to the script
+        script_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+            'scripts', 
+            'fetch_new_stock_data.py'
+        )
+        
+        # Check if script exists
+        if not os.path.isfile(script_path):
+            alt_script_path = os.path.join('app', 'scripts', 'fetch_new_stock_data.py')
+            if os.path.isfile(alt_script_path):
+                script_path = alt_script_path
+            else:
+                return jsonify({"success": False, "error": "Script file not found"}), 404
+        
+        print(f"Running stocks update script at: {script_path}")
+        
+        # Create a temporary file to capture output
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w+', delete=False) as temp:
+            temp_path = temp.name
+        
+        # Run the script and redirect output to the temporary file
+        command = f"{sys.executable} {script_path} > {temp_path} 2>&1"
+        process = subprocess.run(command, shell=True)
+        
+        # Read the output from the temporary file
+        with open(temp_path, 'r') as f:
+            output = f.read()
+        
+        # Clean up the temporary file
+        os.unlink(temp_path)
+        
+        # Return the output as JSON
+        return jsonify({
+            'success': process.returncode == 0,
+            'stdout': output,
+            'stderr': "",
+            'returncode': process.returncode
+        })
+    
+    except Exception as e:
+        import traceback
+        error_traceback = traceback.format_exc()
+        print(f"Error running stocks update script: {str(e)}\n{error_traceback}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': error_traceback
+        }), 500
+
+@auth.route('/admin/run-test', methods=['POST'])
+@login_required
+def run_test():
+    """Run the test script directly"""
+    # Check if user is admin
+    if not current_user.is_admin:
+        return jsonify({'success': False, 'error': 'Access denied. Admin privileges required.'}), 403
+    
+    try:
+        # Get the path to the script
+        script_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+            'scripts', 
+            'test_script.py'
+        )
+        
+        # Check if script exists
+        if not os.path.isfile(script_path):
+            alt_script_path = os.path.join('app', 'scripts', 'test_script.py')
+            if os.path.isfile(alt_script_path):
+                script_path = alt_script_path
+            else:
+                return jsonify({"success": False, "error": "Script file not found"}), 404
+        
+        print(f"Running test script at: {script_path}")
+        
+        # Run the Python script and capture its output
+        # Use a different approach to ensure output is captured
+        try:
+            # Show both stdout and stderr
+            output = subprocess.check_output(
+                [sys.executable, script_path], 
+                stderr=subprocess.STDOUT,
+                universal_newlines=True
+            )
+            return_code = 0
+        except subprocess.CalledProcessError as e:
+            output = e.output
+            return_code = e.returncode
+        
+        # Print the output to the terminal as well
+        print(f"Script output:\n{output}")
+        
+        # Return the output as JSON
+        return jsonify({
+            'success': return_code == 0,
+            'stdout': output,
+            'returncode': return_code
+        })
+    
+    except Exception as e:
+        import traceback
+        error_traceback = traceback.format_exc()
+        print(f"Error running test script: {str(e)}\n{error_traceback}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': error_traceback
+        }), 500
+
+@auth.route('/start-indices', methods=['POST'])
+@login_required
+def start_indices():
+    """Start the indices update script in a completely separate process"""
+    # Check if user is admin
+    if not current_user.is_admin:
+        return jsonify({'success': False, 'error': 'Access denied. Admin privileges required.'}), 403
+    
+    try:
+        # Get the path to the script
+        script_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+            'scripts', 
+            'fetch_new_indices_data.py'
+        )
+        
+        # Check if script exists
+        if not os.path.isfile(script_path):
+            alt_script_path = os.path.join('app', 'scripts', 'fetch_new_indices_data.py')
+            if os.path.isfile(alt_script_path):
+                script_path = alt_script_path
+            else:
+                return jsonify({"success": False, "error": "Script file not found"}), 404
+        
+        print(f"Starting indices update script in a detached process: {script_path}")
+        
+        # Use a different approach - a completely detached process
+        # This ensures it won't cause timeouts on the web server
+        if os.name == 'nt':  # Windows
+            # Use subprocess.Popen with DETACHED_PROCESS flag
+            import subprocess
+            subprocess.Popen(
+                f'start /B cmd /c "python {script_path} > indices_update.log 2>&1"',
+                shell=True,
+                close_fds=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                stdin=subprocess.DEVNULL,
+                creationflags=0x08000000  # DETACHED_PROCESS
+            )
+        else:  # Unix/Linux
+            # Use nohup and redirect output to a log file
+            subprocess.Popen(
+                f'nohup python {script_path} > indices_update.log 2>&1 &',
+                shell=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                stdin=subprocess.DEVNULL,
+                preexec_fn=os.setsid
+            )
+        
+        # Return success immediately - the process is now running in the background
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        import traceback
+        error_traceback = traceback.format_exc()
+        print(f"Error starting indices update script: {str(e)}\n{error_traceback}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@auth.route('/start-stocks', methods=['POST'])
+@login_required
+def start_stocks():
+    """Start the stocks update script in a completely separate process"""
+    # Check if user is admin
+    if not current_user.is_admin:
+        return jsonify({'success': False, 'error': 'Access denied. Admin privileges required.'}), 403
+    
+    try:
+        # Get the path to the script
+        script_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+            'scripts', 
+            'fetch_new_stock_data.py'
+        )
+        
+        # Check if script exists
+        if not os.path.isfile(script_path):
+            alt_script_path = os.path.join('app', 'scripts', 'fetch_new_stock_data.py')
+            if os.path.isfile(alt_script_path):
+                script_path = alt_script_path
+            else:
+                return jsonify({"success": False, "error": "Script file not found"}), 404
+        
+        print(f"Starting stocks update script in a detached process: {script_path}")
+        
+        # Use a different approach - a completely detached process
+        # This ensures it won't cause timeouts on the web server
+        if os.name == 'nt':  # Windows
+            # Use subprocess.Popen with DETACHED_PROCESS flag
+            import subprocess
+            subprocess.Popen(
+                f'start /B cmd /c "python {script_path} > stocks_update.log 2>&1"',
+                shell=True,
+                close_fds=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                stdin=subprocess.DEVNULL,
+                creationflags=0x08000000  # DETACHED_PROCESS
+            )
+        else:  # Unix/Linux
+            # Use nohup and redirect output to a log file
+            subprocess.Popen(
+                f'nohup python {script_path} > stocks_update.log 2>&1 &',
+                shell=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                stdin=subprocess.DEVNULL,
+                preexec_fn=os.setsid
+            )
+        
+        # Return success immediately - the process is now running in the background
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        import traceback
+        error_traceback = traceback.format_exc()
+        print(f"Error starting stocks update script: {str(e)}\n{error_traceback}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

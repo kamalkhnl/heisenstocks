@@ -18,8 +18,11 @@
                     <a href="{{ url_for('auth.admin_companies') }}" class="list-group-item list-group-item-action">
                         <i class="fas fa-building me-2"></i> Manage Companies
                     </a>
-                    <a href="{{ url_for('auth.admin_data') }}" class="list-group-item list-group-item-action">
-                        <i class="fas fa-database me-2"></i> Update Stock Data
+                    <a href="#" id="update-indices-btn-nav" class="list-group-item list-group-item-action">
+                        <i class="fas fa-chart-bar me-2"></i> Update Indices
+                    </a>
+                    <a href="#" id="update-stocks-btn-nav" class="list-group-item list-group-item-action">
+                        <i class="fas fa-chart-line me-2"></i> Update Stocks
                     </a>
                     <a href="{{ url_for('auth.logout') }}" class="list-group-item list-group-item-action text-danger">
                         <i class="fas fa-sign-out-alt me-2"></i> Logout
@@ -101,11 +104,14 @@
                     <div>
                         <h6>Quick Actions</h6>
                         <div class="btn-group">
-                            <a href="{{ url_for('auth.admin_data') }}" class="btn btn-primary">
-                                <i class="fas fa-sync me-2"></i> Update Data
-                            </a>
                             <a href="{{ url_for('auth.admin_companies') }}" class="btn btn-secondary">
                                 <i class="fas fa-plus me-2"></i> Add Company
+                            </a>
+                            <a href="#" id="update-indices-btn" class="btn btn-success">
+                                <i class="fas fa-chart-bar me-2"></i> Update Indices
+                            </a>
+                            <a href="#" id="update-stocks-btn" class="btn btn-info">
+                                <i class="fas fa-chart-line me-2"></i> Update Stocks
                             </a>
                         </div>
                     </div>
@@ -131,6 +137,30 @@
     </div>
 </div>
 {% endif %}
+
+<!-- Update Data Modal -->
+<div class="modal fade" id="updateDataModal" tabindex="-1" aria-labelledby="updateDataModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header bg-dark border-secondary">
+        <h5 class="modal-title text-light" id="updateDataModalLabel">Updating Data</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body bg-dark">
+        <div class="progress mb-3">
+          <div id="update-progress" class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%"></div>
+        </div>
+        <div>
+          <h6 class="text-light">Update Log:</h6>
+          <pre id="update-log" class="bg-dark text-light p-3 border border-secondary" style="max-height: 400px; overflow-y: auto;"></pre>
+        </div>
+      </div>
+      <div class="modal-footer bg-dark border-secondary">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="closeUpdateModal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -145,6 +175,98 @@
                 window.location.reload(true);
             }, 500);
         }
+
+        // Function to start a background process with SSE for real-time updates
+        function startUpdateProcess(updateType) {
+            const updateModal = new bootstrap.Modal(document.getElementById('updateDataModal'));
+            updateModal.show();
+
+            const logElement = document.getElementById('update-log');
+            const progressBar = document.getElementById('update-progress');
+            const modalTitle = document.getElementById('updateDataModalLabel');
+            const closeBtn = document.getElementById('closeUpdateModal');
+
+            if (document.getElementById('status-line')) {
+                document.getElementById('status-line').remove();
+            }
+            const statusLine = document.createElement('p');
+            statusLine.id = 'status-line';
+            statusLine.className = 'text-light mb-2 fw-bold';
+            statusLine.textContent = `Starting ${updateType} update process...`;
+            const logContainer = document.querySelector('#update-log').parentNode;
+            logContainer.insertBefore(statusLine, logElement);
+
+            logElement.textContent = '';
+            progressBar.style.width = '5%';
+            progressBar.setAttribute('aria-valuenow', 5);
+            progressBar.classList.remove('bg-danger');
+            progressBar.classList.add('bg-success');
+            modalTitle.textContent = updateType === 'indices' ? 'Updating Indices' : 'Updating Stocks';
+            closeBtn.disabled = true;
+
+            // Start SSE connection for live progress
+            const sseUrl = `/auth/admin/update-${updateType}`;
+            const evtSource = new EventSource(sseUrl);
+
+            evtSource.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.log) {
+                        logElement.textContent += data.log + '\n';
+                        logElement.scrollTop = logElement.scrollHeight;
+                    }
+                    if (data.progress !== undefined) {
+                        let prog = Math.max(5, Math.min(100, data.progress));
+                        progressBar.style.width = prog + '%';
+                        progressBar.setAttribute('aria-valuenow', prog);
+                    }
+                    if (data.status === 'complete') {
+                        statusLine.textContent = 'Update complete!';
+                        statusLine.className = 'text-success mb-2 fw-bold';
+                        closeBtn.disabled = false;
+                        evtSource.close();
+                    } else if (data.status === 'error') {
+                        statusLine.textContent = 'Update failed!';
+                        statusLine.className = 'text-danger mb-2 fw-bold';
+                        progressBar.classList.remove('bg-success');
+                        progressBar.classList.add('bg-danger');
+                        closeBtn.disabled = false;
+                        evtSource.close();
+                    }
+                } catch (e) {
+                    logElement.textContent += '\n[Error parsing server message]\n';
+                }
+            };
+            evtSource.onerror = function() {
+                logElement.textContent += '\n[Connection lost or server error]\n';
+                statusLine.textContent = 'Connection lost!';
+                statusLine.className = 'text-danger mb-2 fw-bold';
+                closeBtn.disabled = false;
+                evtSource.close();
+            };
+        }
+
+        // Event handlers for the update indices buttons (both navigation and quick actions)
+        document.getElementById('update-indices-btn').addEventListener('click', function(e) {
+            e.preventDefault();
+            startUpdateProcess('indices');
+        });
+        
+        document.getElementById('update-indices-btn-nav').addEventListener('click', function(e) {
+            e.preventDefault();
+            startUpdateProcess('indices');
+        });
+
+        // Event handlers for the update stocks buttons (both navigation and quick actions)
+        document.getElementById('update-stocks-btn').addEventListener('click', function(e) {
+            e.preventDefault();
+            startUpdateProcess('stocks');
+        });
+        
+        document.getElementById('update-stocks-btn-nav').addEventListener('click', function(e) {
+            e.preventDefault();
+            startUpdateProcess('stocks');
+        });
     });
 </script>
 {% endblock %}
