@@ -1,8 +1,23 @@
 document.addEventListener('DOMContentLoaded', function() {
     const chartContainer = document.getElementById('container');
-    const { createChart, AreaSeries, CandlestickSeries } = LightweightCharts;
+    const { createChart, AreaSeries, CandlestickSeries, HistogramSeries } = LightweightCharts;
     let chart;
-    let initialLayoutSet = false;
+    const MAIN_PANE_RATIO = 0.8; // 70% for main chart, 30% for indicator
+
+    function applyPaneLayout() {
+        if (!chart) return;
+        
+        const panes = chart.panes();
+        if (panes && panes.length > 1) {
+            const totalHeight = chartContainer.clientHeight;
+            const mainPaneHeight = Math.floor(totalHeight * MAIN_PANE_RATIO);
+            const indicatorPaneHeight = totalHeight - mainPaneHeight;
+            
+            // Set heights explicitly for both panes
+            panes[0].setHeight(mainPaneHeight);
+            panes[1].setHeight(indicatorPaneHeight);
+        }
+    }
 
     function initChart() {
         const chartOptions = {
@@ -14,7 +29,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 panes: {
                     separatorColor: '#f22c3d',
                     separatorHoverColor: 'rgba(255, 0, 0, 0.1)',
-                    enableResize: false
+                    separatorLineWidth: 3,
+                    enableResize: false  // Disable manual resizing to maintain ratio
                 }
             },
             grid: {
@@ -37,30 +53,32 @@ document.addEventListener('DOMContentLoaded', function() {
         };
 
         chart = createChart(chartContainer, chartOptions);
-
         chart.timeScale().applyOptions({rightOffset: 10});
 
-        // Handle window resizing - only update dimensions, not pane order
+        // Handle window resizing
         function handleResize() {
+            const width = chartContainer.clientWidth;
+            const height = chartContainer.clientHeight;
+            
             chart.applyOptions({
-                width: chartContainer.clientWidth,
-                height: chartContainer.clientHeight
+                width: width,
+                height: height,
             });
             
-            // Only update heights, not positions
-            const panes = chart.panes();
-            if (panes && panes.length > 1) {
-                const totalHeight = chartContainer.clientHeight;
-                const mainPane = panes[0];
-                if (mainPane) {
-                    mainPane.setHeight(Math.floor(totalHeight * 0.8));
-                }
-            }
+            // Force layout update after resize
+            applyPaneLayout();
         }
 
+        // Add resize observer for more reliable size changes detection
+        const resizeObserver = new ResizeObserver(() => {
+            handleResize();
+        });
+        resizeObserver.observe(chartContainer);
+
+        // Also keep the window resize event for backup
         window.addEventListener('resize', handleResize);
 
-        // Create candlestick series first in pane 0 (main pane)
+        // Create candlestick series
         const candlestickSeries = chart.addSeries(
             CandlestickSeries,
             {
@@ -73,13 +91,19 @@ document.addEventListener('DOMContentLoaded', function() {
             0  // Main pane
         );
 
-        // Create area series in pane 1
-        const areaSeries = chart.addSeries(AreaSeries, {
-            topColor: '#2962FF',
-            bottomColor: 'rgba(41, 98, 255, 0.28)',
-            lineColor: '#2962FF',
-            lineWidth: 2
+        // Create histogram series for squeeze momentum
+        const squeezeHistogram = chart.addSeries(HistogramSeries, {
+            color: '#26a69a',
+            base: 0,
+            lineWidth: 4,
         }, 1);  // Bottom pane
+
+        // Create dot series for squeeze state
+        const squeezeDots = chart.addSeries(HistogramSeries, {
+            color: 'blue',
+            base: 0,
+            lineWidth: 2,
+        }, 1);
 
         // Fetch and set data
         const params = new URLSearchParams(window.location.search);
@@ -98,56 +122,58 @@ document.addEventListener('DOMContentLoaded', function() {
                         close: parseFloat(item.close || item.value)
                     }));
 
-                    const areaData = data.map(item => ({
+                    // Initialize and calculate squeeze momentum
+                    const squeezeIndicator = new SqueezeIndicator();
+                    const squeezeData = squeezeIndicator.calculate(chartData);
+
+                    candlestickSeries.setData(chartData);
+
+                    const histogramData = squeezeData.map(item => ({
                         time: item.time,
-                        value: parseFloat(item.close || item.value)
+                        value: item.value,
+                        color: getHistogramColor(item)
                     }));
 
-                    // Set data for both series
-                    candlestickSeries.setData(chartData);
-                    areaSeries.setData(areaData);
+                    const dotsData = squeezeData.map(item => ({
+                        time: item.time,
+                        value: 0,
+                        color: getSqueezeStateColor(item)
+                    }));
 
-                    // Set initial layout only once
-                    if (!initialLayoutSet) {
-                        const panes = chart.panes();
-                        if (panes && panes.length > 1) {
-                            const mainPane = panes[0];
-                            if (mainPane) {
-                                mainPane.setHeight(Math.floor(chartContainer.clientHeight * 0.8));
-                            }
-                            initialLayoutSet = true;
-                        }
+                    squeezeHistogram.setData(histogramData);
+                    squeezeDots.setData(dotsData);
 
-                        // Calculate the date range for the last year
-                        if (chartData.length > 0) {
-                            const lastDataPoint = chartData[chartData.length - 1].time;
-                            const oneYearAgo = new Date();
-                            oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-                            
-                            // Find the index of data point closest to one year ago
-                            const yearAgoIndex = chartData.findIndex(item => {
-                                const itemDate = new Date(item.time);
-                                return itemDate >= oneYearAgo;
+                    // Force layout update after data is loaded
+                    setTimeout(applyPaneLayout, 100);
+
+                    if (chartData.length > 0) {
+                        const lastDataPoint = chartData[chartData.length - 1].time;
+                        const oneYearAgo = new Date();
+                        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+                        
+                        const yearAgoIndex = chartData.findIndex(item => {
+                            const itemDate = new Date(item.time);
+                            return itemDate >= oneYearAgo;
+                        });
+
+                        if (yearAgoIndex !== -1) {
+                            const timeScale = chart.timeScale();
+                            timeScale.setVisibleRange({
+                                from: chartData[yearAgoIndex].time,
+                                to: lastDataPoint
                             });
-
-                            if (yearAgoIndex !== -1) {
-                                const timeScale = chart.timeScale();
-                                timeScale.setVisibleRange({
-                                    from: chartData[yearAgoIndex].time,
-                                    to: lastDataPoint
-                                });
-                                
-                                // Add proper margin by adjusting the logical range
-                                setTimeout(() => {
-                                    const visibleLogicalRange = timeScale.getVisibleLogicalRange();
-                                    if (visibleLogicalRange) {
-                                        timeScale.setVisibleLogicalRange({
-                                            from: visibleLogicalRange.from,
-                                            to: visibleLogicalRange.to + 20  // Add margin after the last candle
-                                        });
-                                    }
-                                }, 50);
-                            }
+                            
+                            setTimeout(() => {
+                                const visibleLogicalRange = timeScale.getVisibleLogicalRange();
+                                if (visibleLogicalRange) {
+                                    timeScale.setVisibleLogicalRange({
+                                        from: visibleLogicalRange.from,
+                                        to: visibleLogicalRange.to + 20
+                                    });
+                                }
+                                // Force layout update after time range is set
+                                applyPaneLayout();
+                            }, 50);
                         }
                     }
                 }
@@ -157,6 +183,27 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
         return chart;
+    }
+
+    function getHistogramColor(item) {
+        switch(item.momentum) {
+            case 'strong_up':
+                return '#00ff00';  // Bright green
+            case 'weak_up':
+                return '#008000';  // Dark green
+            case 'strong_down':
+                return '#ff0000';  // Bright red
+            case 'weak_down':
+                return '#800000';  // Dark red
+            default:
+                return '#808080';  // Gray
+        }
+    }
+
+    function getSqueezeStateColor(item) {
+        if (item.sqzOn) return '#000000';  // Black for squeeze
+        if (item.sqzOff) return '#808080'; // Gray for no squeeze
+        return '#0000ff';                  // Blue for neither
     }
 
     if (chartContainer) {
