@@ -185,21 +185,26 @@ def create_app():
     })
     
     # Register custom Jinja2 filters
-    from app.utils import format_number
-    app.jinja_env.filters['format_number'] = format_number
+    @app.template_filter('format_number')
+    def format_number(value):
+        """Format numbers with commas"""
+        try:
+            if isinstance(value, str):
+                value = float(value)
+            return "{:,.2f}".format(value)
+        except (ValueError, TypeError):
+            return value
     
     # Register blueprints
     from app.routes.main import main as main_blueprint
-    app.register_blueprint(main_blueprint)
-    
-    from app.routes.companies import companies as companies_blueprint
-    app.register_blueprint(companies_blueprint, url_prefix='/companies')
-    
-    from app.routes.charts import charts as charts_blueprint
-    app.register_blueprint(charts_blueprint, url_prefix='/charts')
-    
     from app.routes.auth import auth as auth_blueprint
+    from app.routes.charts import charts as charts_blueprint
+    from app.routes.companies import companies as companies_blueprint
+    
+    app.register_blueprint(main_blueprint)
     app.register_blueprint(auth_blueprint, url_prefix='/auth')
+    app.register_blueprint(charts_blueprint, url_prefix='/charts')
+    app.register_blueprint(companies_blueprint, url_prefix='/companies')
     
     # Import the User model for the login manager
     from app.models.user import User

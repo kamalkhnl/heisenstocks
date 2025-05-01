@@ -1,0 +1,19 @@
+.chart-container {
+    height: calc(100vh - 80px);
+    width: 100%;
+    position: relative;
+    background: #131722;
+}
+
+.loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #d1d4dc;
+}
+
+#chart {
+    width: 100%;
+    height: 100%;
+}

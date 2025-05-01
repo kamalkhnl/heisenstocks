@@ -13,7 +13,7 @@ load_dotenv()
 
 # MongoDB connection setup
 def connect_to_mongodb():
-    mongo_uri = os.getenv('MONGODB_URI')
+    mongo_uri = os.getenv('MONGODB_URI_ADMIN')
     database_name = os.getenv('DATABASE_NAME')
     stocks_collection = os.getenv('NEPSE_STOCKS')
     

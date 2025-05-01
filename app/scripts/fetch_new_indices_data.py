@@ -44,7 +44,7 @@ headers = {
 
 # MongoDB connection setup
 def connect_to_mongodb():
-    mongo_uri = os.getenv('MONGODB_URI')
+    mongo_uri = os.getenv('MONGODB_URI_ADMIN')
     database_name = os.getenv('DATABASE_NAME')
     indices_collection = os.getenv('NEPSE_INDICES')
     

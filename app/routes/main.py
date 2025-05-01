@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify, current_app
+from flask import Blueprint, render_template, request, jsonify, current_app, redirect, url_for
 from app import get_db
 from app.models.index import Index
 from datetime import datetime
@@ -226,3 +226,10 @@ def search():
     
     # Skip caching for now
     return jsonify(results)
+
+@main.route('/charts')
+def charts_redirect():
+    """
+    Redirect /charts URL to the charts page
+    """
+    return redirect(url_for('charts.index'))

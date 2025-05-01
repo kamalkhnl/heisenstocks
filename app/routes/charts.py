@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for
 from app import get_db
 from datetime import datetime, timedelta
 from bson import ObjectId
@@ -9,20 +9,8 @@ charts = Blueprint('charts', __name__)
 
 @charts.route('/')
 def index():
-    """Display the charts page with company/index selector"""
-    db = get_db()
-    
-    # Get list of companies for the selector
-    companies = list(db.companies.find({}).sort('symbol', 1))
-    
-    # Get list of indices for the selector
-    indices = list(db['nepse-indices'].distinct('index_name'))
-    
-    return render_template(
-        'charts/index.html',
-        companies=companies,
-        indices=indices
-    )
+    """Display the interactive TradingView charts page"""
+    return render_template('charts/index.html')
 
 @charts.route('/api/data')
 def chart_data():

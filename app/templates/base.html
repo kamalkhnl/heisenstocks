@@ -129,9 +129,10 @@
             width: 80%;
         }
         
-        /* IMPORTANT: Hide search bar on admin pages and login page */
+        /* IMPORTANT: Hide search bar on admin pages, login page, and charts page */
         body.admin-page .search-container,
-        body.login-page .search-container {
+        body.login-page .search-container,
+        body.charts-page .search-container {
             display: none !important;
         }
         
@@ -142,7 +143,7 @@
         }
     </style>
 </head>
-<body class="{% if request.path.startswith('/auth/admin') %}admin-page{% elif request.path == '/auth/login' %}login-page{% endif %}">
+<body class="{% if request.path.startswith('/auth/admin') %}admin-page{% elif request.path == '/auth/login' %}login-page{% elif request.endpoint and request.endpoint.startswith('charts') %}charts-page{% endif %}">
     <div class="app-container">
         <!-- Sidebar -->
         <div class="sidebar">
@@ -200,8 +201,8 @@
         
         <!-- Main Content Area -->
         <div class="main-content">
-            <!-- Centered Search Bar (hidden on admin pages and login page) -->
-            {% if not request.path.startswith('/auth/admin') and request.path != '/auth/login' %}
+            <!-- Centered Search Bar (hidden on admin pages, login page, and charts page) -->
+            {% if not request.path.startswith('/auth/admin') and request.path != '/auth/login' and not request.endpoint.startswith('charts') %}
             <div class="search-container">
                 <div class="search-box">
                     <i class="fas fa-search me-2"></i>
