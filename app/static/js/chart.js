@@ -18,12 +18,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             },
             grid: {
-                vertLines: { visible: false },
-                horzLines: { visible: false }
+                vertLines: { 
+                    color: 'rgba(255, 255, 255, 0.1)',
+                    style: 1,
+                    visible: true
+                },
+                horzLines: { 
+                    color: 'rgba(255, 255, 255, 0.1)',
+                    style: 1,
+                    visible: true
+                }
+            },
+            timeScale: {
+                timeVisible: true,
+                secondsVisible: false,
+                barSpacing: 5,
             }
         };
 
         chart = createChart(chartContainer, chartOptions);
+
+        chart.timeScale().applyOptions({rightOffset: 10});
 
         // Handle window resizing - only update dimensions, not pane order
         function handleResize() {
@@ -102,9 +117,39 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                             initialLayoutSet = true;
                         }
-                    }
 
-                    chart.timeScale().fitContent();
+                        // Calculate the date range for the last year
+                        if (chartData.length > 0) {
+                            const lastDataPoint = chartData[chartData.length - 1].time;
+                            const oneYearAgo = new Date();
+                            oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+                            
+                            // Find the index of data point closest to one year ago
+                            const yearAgoIndex = chartData.findIndex(item => {
+                                const itemDate = new Date(item.time);
+                                return itemDate >= oneYearAgo;
+                            });
+
+                            if (yearAgoIndex !== -1) {
+                                const timeScale = chart.timeScale();
+                                timeScale.setVisibleRange({
+                                    from: chartData[yearAgoIndex].time,
+                                    to: lastDataPoint
+                                });
+                                
+                                // Add proper margin by adjusting the logical range
+                                setTimeout(() => {
+                                    const visibleLogicalRange = timeScale.getVisibleLogicalRange();
+                                    if (visibleLogicalRange) {
+                                        timeScale.setVisibleLogicalRange({
+                                            from: visibleLogicalRange.from,
+                                            to: visibleLogicalRange.to + 20  // Add margin after the last candle
+                                        });
+                                    }
+                                }, 50);
+                            }
+                        }
+                    }
                 }
             })
             .catch(error => {
