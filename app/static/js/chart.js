@@ -14,6 +14,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let smaManager;
     let selectedIndex = 0;
     let suggestions = [];
+    let currentSymbolInfo = null;
+    let currentChartData = null;
     const MAIN_PANE_RATIO = 0.8; // 70% for main chart, 30% for indicator
 
     function applyPaneLayout() {
@@ -31,12 +33,28 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function updateSymbolDisplay(type, id, name) {
+        currentSymbolInfo = { type, id, name };
+        const symbolDisplay = document.getElementById('current-symbol');
+        const nameDisplay = document.getElementById('current-name');
+        if (symbolDisplay && nameDisplay) {
+            symbolDisplay.textContent = id;
+            nameDisplay.textContent = name || (type === 'index' ? 'Index' : '');
+            // Make both elements visible
+            symbolDisplay.style.display = 'block';
+            nameDisplay.style.display = 'block';
+        }
+    }
+
     async function loadSymbolData(type, id) {
         try {
             const response = await fetch(`/charts/api/data?type=${type}&id=${id}`);
             const data = await response.json();
             
             if (data && data.length > 0) {
+                // Update symbol display with the correct symbol and name
+                updateSymbolDisplay(type, data[0].symbol || id, data[0].name || (type === 'index' ? 'Index' : ''));
+                
                 const chartData = data.map(item => ({
                     time: item.time,
                     open: parseFloat(item.open),
@@ -45,60 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     close: parseFloat(item.close || item.value)
                 }));
 
-                // Initialize and calculate squeeze momentum
-                const squeezeIndicator = new SqueezeIndicator();
-                const squeezeData = squeezeIndicator.calculate(chartData);
-
-                candlestickSeries.setData(chartData);
-
-                // Update SMA data
-                smaManager.updateData(chartData);
-
-                const histogramData = squeezeData.map(item => ({
-                    time: item.time,
-                    value: item.value,
-                    color: getHistogramColor(item)
-                }));
-
-                const dotsData = squeezeData.map(item => ({
-                    time: item.time,
-                    value: 0,
-                    color: getSqueezeStateColor(item)
-                }));
-
-                squeezeHistogram.setData(histogramData);
-                squeezeDots.setData(dotsData);
-
-                // Set time range to last year
-                if (chartData.length > 0) {
-                    const lastDataPoint = chartData[chartData.length - 1].time;
-                    const oneYearAgo = new Date();
-                    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-                    
-                    const yearAgoIndex = chartData.findIndex(item => {
-                        const itemDate = new Date(item.time);
-                        return itemDate >= oneYearAgo;
-                    });
-
-                    if (yearAgoIndex !== -1) {
-                        const timeScale = chart.timeScale();
-                        timeScale.setVisibleRange({
-                            from: chartData[yearAgoIndex].time,
-                            to: lastDataPoint
-                        });
-                        
-                        setTimeout(() => {
-                            const visibleLogicalRange = timeScale.getVisibleLogicalRange();
-                            if (visibleLogicalRange) {
-                                timeScale.setVisibleLogicalRange({
-                                    from: visibleLogicalRange.from,
-                                    to: visibleLogicalRange.to + 20
-                                });
-                            }
-                            applyPaneLayout();
-                        }, 50);
-                    }
-                }
+                updateChartData(chartData);
             }
         } catch (error) {
             console.error('Error loading symbol data:', error);
@@ -113,10 +78,24 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!query) return data;
             
             query = query.toLowerCase();
-            return data.filter(item => 
-                item.symbol.toLowerCase().includes(query) || 
-                item.name.toLowerCase().includes(query)
-            );
+            return data.filter(item => {
+                const symbol = item.symbol.toLowerCase();
+                const name = (item.name || '').toLowerCase();
+                
+                // Exact symbol match has highest priority
+                if (symbol === query) return true;
+                
+                // Symbol starts with query
+                if (symbol.startsWith(query)) return true;
+                
+                // Only then check if name contains query
+                if (name.includes(query)) return true;
+                
+                // Finally, check if symbol contains query, but with lower priority
+                // Only include if it's part of a word boundary
+                const symbolWords = symbol.split(/[\s-_.]+/);
+                return symbolWords.some(word => word.startsWith(query));
+            });
         } catch (error) {
             console.error('Error searching symbols:', error);
             return [];
@@ -141,7 +120,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!item) return;
         
         hideSearch();  // Hide search immediately when selection is made
-        loadSymbolData(item.isIndex ? 'index' : 'company', item.isIndex ? item.id : item.id);
+        // For both companies and indices, use the symbol
+        loadSymbolData(item.isIndex ? 'index' : 'company', item.symbol);
     }
 
     let debounceTimeout;
@@ -317,7 +297,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const params = new URLSearchParams(window.location.search);
             const type = params.get('type') || 'index';
             const id = params.get('id') || 'NEPSE Index';
-            loadSymbolData(type, id);
+            // For companies, check if the ID is actually a symbol
+            if (type === 'company') {
+                loadSymbolData(type, id.toUpperCase());  // Convert to uppercase to match symbol format
+            } else {
+                loadSymbolData(type, id);
+            }
 
             return chart;
         } catch (error) {
@@ -344,6 +329,39 @@ document.addEventListener('DOMContentLoaded', function() {
         if (item.sqzOn) return '#000000';  // Black for squeeze
         if (item.sqzOff) return '#808080'; // Gray for no squeeze
         return '#0000ff';                  // Blue for neither
+    }
+
+    function updateChartData(chartData) {
+        if (!chartData) return;
+        currentChartData = chartData;  // Store the data
+
+        candlestickSeries.setData(chartData);
+
+        // Update SMAs based on settings
+        if (document.getElementById('sma-toggle').checked) {
+            smaManager.updateData(chartData);
+        }
+
+        // Calculate and update squeeze momentum if enabled
+        if (document.getElementById('squeeze-momentum').checked) {
+            const squeezeIndicator = new SqueezeIndicator();
+            const squeezeData = squeezeIndicator.calculate(chartData);
+
+            const histogramData = squeezeData.map(item => ({
+                time: item.time,
+                value: item.value,
+                color: getHistogramColor(item)
+            }));
+
+            const dotsData = squeezeData.map(item => ({
+                time: item.time,
+                value: 0,
+                color: getSqueezeStateColor(item)
+            }));
+
+            squeezeHistogram.setData(histogramData);
+            squeezeDots.setData(dotsData);
+        }
     }
 
     function initSearch() {
@@ -395,6 +413,28 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // Add event listener for main SMA toggle
+    document.getElementById('sma-toggle').addEventListener('change', function(e) {
+        if (e.target.checked) {
+            smaManager.addSMA(20, '#2962FF');  // Blue
+            smaManager.addSMA(50, '#FF6D00');  // Orange
+            smaManager.addSMA(200, '#E91E63'); // Pink
+        } else {
+            smaManager.removeAll();
+        }
+        if (currentSymbolInfo && currentChartData) {
+            updateChartData(currentChartData);
+        }
+    });
+
+    // Event listener for squeeze momentum toggle
+    document.getElementById('squeeze-momentum').addEventListener('change', function(e) {
+        if (squeezeHistogram && squeezeDots) {
+            squeezeHistogram.applyOptions({ visible: e.target.checked });
+            squeezeDots.applyOptions({ visible: e.target.checked });
+        }
+    });
 
     if (chartContainer) {
         console.log('Starting chart initialization');

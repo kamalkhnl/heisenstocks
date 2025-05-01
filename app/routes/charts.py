@@ -49,20 +49,29 @@ def chart_data():
     
     if chart_type == 'company':
         try:
-            company = db.companies.find_one({'_id': ObjectId(identifier)})
+            # First try to find by symbol since that's what we're using now
+            company = db.companies.find_one({'symbol': identifier})
+            company_name = None
             
             if company:
-                if 'company_id' in company:
-                    query['company_id'] = company['company_id']
-                elif 'symbol' in company:
-                    query['company_symbol'] = company['symbol']
-                else:
-                    query['company_symbol'] = company.get('_id', identifier)
+                # If found by symbol, use company_id since that's how stock data is stored
+                query['company_id'] = company['company_id']
+                company_name = company.get('companyname')
             else:
+                # Legacy support for company_id and fallback for direct symbol query
                 try:
                     query['company_id'] = int(identifier)
+                    # Try to get company name from company_id
+                    comp = db.companies.find_one({'company_id': int(identifier)})
+                    if comp:
+                        company_name = comp.get('companyname')
                 except ValueError:
                     query['company_symbol'] = identifier
+                    # Try to get company name from symbol
+                    comp = db.companies.find_one({'symbol': identifier})
+                    if comp:
+                        company_name = comp.get('companyname')
+        
         except Exception as e:
             return jsonify({"error": f"Invalid company identifier: {str(e)}"}), 400
         
@@ -79,6 +88,10 @@ def chart_data():
         
         result = []
         for item in data:
+            # Add the company name to the first data point
+            if len(result) == 0:
+                item['name'] = company_name
+                
             date_obj = item.get('published_date')
             date_str = None
 
@@ -153,7 +166,9 @@ def chart_data():
                 'high': high_price,
                 'low': low_price,
                 'close': close_price,
-                'volume': int(volume)
+                'volume': int(volume),
+                'symbol': identifier,
+                'name': company_name
             })
         
         if not result:
