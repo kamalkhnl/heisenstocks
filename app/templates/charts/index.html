@@ -3,30 +3,145 @@
 {% block title %}Charts | STONKS{% endblock %}
 
 {% block content %}
-<div id="container"></div>
+<div id="chart-container">
+    <div id="search-overlay" class="hidden">
+        <div id="search-container">
+            <input type="text" id="chart-search" placeholder="Search symbol..." autocomplete="off">
+            <div id="search-suggestions" class="hidden"></div>
+        </div>
+    </div>
+    <div id="container"></div>
+</div>
 {% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chart.css') }}">
 <style>
     body { 
         margin: 0; 
         height: 100vh;
         overflow: hidden;
     }
-    #container { 
-        width: calc(100vw - 60px); /* Account for sidebar */
-        height: calc(100vh - 0px); /* Account for sidebar */
+    #chart-container {
         position: fixed;
         top: 0;
         right: 0;
         bottom: 0;
-        left: 60px; /* Match sidebar width */
+        left: 60px;
+        background: #131722;
+    }
+    #container { 
+        width: 100%;
+        height: 100%;
+    }
+    #search-overlay {
+        position: fixed;
+        top: 0;
+        left: 60px;
+        right: 0;
+        bottom: 0;
+        background: rgba(19, 23, 34, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        opacity: 1;
+        transition: opacity 0.2s ease-in-out;
+    }
+    #search-overlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+    #search-container {
+        width: 300px;
+        padding: 20px;
+        position: relative;
+    }
+    #chart-search {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid #363a45;
+        border-radius: 4px;
+        background: #2a2e39;
+        color: #fff;
+        font-size: 16px;
+        outline: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        box-sizing: border-box;
+    }
+    #chart-search:focus {
+        border-color: #2962ff;
+    }
+    #search-suggestions {
+        position: absolute;
+        top: 100%;
+        left: 20px;
+        right: 20px;
+        background: #2a2e39;
+        border: 1px solid #363a45;
+        border-radius: 4px;
+        margin-top: 4px;
+        max-height: 300px;
+        overflow-y: auto;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        z-index: 10;
+    }
+    #search-suggestions.hidden {
+        display: none;
+    }
+    #search-suggestions::-webkit-scrollbar {
+        width: 6px;
+    }
+    #search-suggestions::-webkit-scrollbar-track {
+        background: #1e222d;
+    }
+    #search-suggestions::-webkit-scrollbar-thumb {
+        background: #363a45;
+        border-radius: 3px;
+    }
+    #search-suggestions::-webkit-scrollbar-thumb:hover {
+        background: #4a4f5c;
+    }
+    .suggestion-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .suggestion-item.selected,
+    .suggestion-item:hover {
+        background: #363a45;
+    }
+    .suggestion-symbol {
+        font-weight: 600;
+        color: #fff;
+        font-size: 14px;
+        line-height: 1.2;
+    }
+    .suggestion-name {
+        color: #787b86;
+        font-size: 12px;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 </style>
 {% endblock %}
 
 {% block extra_js %}
+<script>
+    // Check if LightweightCharts loads correctly
+    window.addEventListener('error', function(e) {
+        if (e.message.includes('LightweightCharts')) {
+            console.error('Error loading LightweightCharts:', e);
+        }
+    });
+</script>
 <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+<script src="{{ url_for('static', filename='js/indicators/smaIndicator.js') }}"></script>
 <script src="{{ url_for('static', filename='js/indicators/squeezeIndicator.js') }}"></script>
+<script src="{{ url_for('static', filename='js/indicators/smaChartManager.js') }}"></script>
 <script src="{{ url_for('static', filename='js/chart.js') }}"></script>
 {% endblock %}
