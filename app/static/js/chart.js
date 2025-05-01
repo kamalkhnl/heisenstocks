@@ -1,21 +1,19 @@
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM Content Loaded');
     const chartContainer = document.getElementById('container');
-    console.log('Chart container:', chartContainer);
     const searchOverlay = document.getElementById('search-overlay');
     const searchInput = document.getElementById('chart-search');
     const suggestionsContainer = document.getElementById('search-suggestions');
+    const activeIndicatorsContainer = document.getElementById('active-indicators');
     console.log('Initializing chart with lightweight-charts:', typeof LightweightCharts);
-    const { createChart, AreaSeries, CandlestickSeries, HistogramSeries } = LightweightCharts;
+    const { createChart, AreaSeries, CandlestickSeries, HistogramSeries, LineSeries } = LightweightCharts;
+    
     let chart;
     let candlestickSeries;
-    let squeezeHistogram;
-    let squeezeDots;
-    let smaManager;
     let selectedIndex = 0;
     let suggestions = [];
     let currentSymbolInfo = null;
     let currentChartData = null;
+    let indicatorInstances = [];
     const MAIN_PANE_RATIO = 0.8; // 70% for main chart, 30% for indicator
 
     function applyPaneLayout() {
@@ -62,6 +60,24 @@ document.addEventListener('DOMContentLoaded', function() {
                     low: parseFloat(item.low),
                     close: parseFloat(item.close || item.value)
                 }));
+
+                // Remove existing candlestick series if it exists
+                if (candlestickSeries) {
+                    chart.removeSeries(candlestickSeries);
+                }
+
+                // Create new candlestick series
+                candlestickSeries = chart.addSeries(
+                    CandlestickSeries,
+                    {
+                        upColor: '#26a69a',
+                        downColor: '#ef5350',
+                        borderVisible: false,
+                        wickUpColor: '#26a69a',
+                        wickDownColor: '#ef5350'
+                    },
+                    0  // Main pane
+                );
 
                 updateChartData(chartData);
             }
@@ -272,27 +288,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 0  // Main pane
             );
 
-            // Initialize SMA manager
-            smaManager = new SMAManager(chart, 0);
-            // Add default SMAs
-            smaManager.addSMA(20, '#2962FF');  // Blue
-            smaManager.addSMA(50, '#FF6D00');  // Orange
-            smaManager.addSMA(200, '#E91E63'); // Pink
-
-            // Create histogram series for squeeze momentum
-            squeezeHistogram = chart.addSeries(HistogramSeries, {
-                color: '#26a69a',
-                base: 0,
-                lineWidth: 4,
-            }, 1);  // Bottom pane
-
-            // Create dot series for squeeze state
-            squeezeDots = chart.addSeries(HistogramSeries, {
-                color: 'blue',
-                base: 0,
-                lineWidth: 2,
-            }, 1);
-
             // Load initial data based on URL parameters
             const params = new URLSearchParams(window.location.search);
             const type = params.get('type') || 'index';
@@ -332,36 +327,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateChartData(chartData) {
-        if (!chartData) return;
+        if (!chartData || !candlestickSeries) return;
         currentChartData = chartData;  // Store the data
 
-        candlestickSeries.setData(chartData);
-
-        // Update SMAs based on settings
-        if (document.getElementById('sma-toggle').checked) {
-            smaManager.updateData(chartData);
-        }
-
-        // Calculate and update squeeze momentum if enabled
-        if (document.getElementById('squeeze-momentum').checked) {
-            const squeezeIndicator = new SqueezeIndicator();
-            const squeezeData = squeezeIndicator.calculate(chartData);
-
-            const histogramData = squeezeData.map(item => ({
-                time: item.time,
-                value: item.value,
-                color: getHistogramColor(item)
-            }));
-
-            const dotsData = squeezeData.map(item => ({
-                time: item.time,
-                value: 0,
-                color: getSqueezeStateColor(item)
-            }));
-
-            squeezeHistogram.setData(histogramData);
-            squeezeDots.setData(dotsData);
-        }
+        // Ensure candlestick series is updated
+        requestAnimationFrame(() => {
+            candlestickSeries.setData(chartData);
+            // Update indicators after candlesticks are set
+            indicatorInstances.forEach(indicator => {
+                indicator.updateData(chartData);
+            });
+        });
     }
 
     function initSearch() {
@@ -414,32 +390,49 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Add event listener for main SMA toggle
-    document.getElementById('sma-toggle').addEventListener('change', function(e) {
-        if (e.target.checked) {
-            smaManager.addSMA(20, '#2962FF');  // Blue
-            smaManager.addSMA(50, '#FF6D00');  // Orange
-            smaManager.addSMA(200, '#E91E63'); // Pink
-        } else {
-            smaManager.removeAll();
-        }
-        if (currentSymbolInfo && currentChartData) {
-            updateChartData(currentChartData);
-        }
-    });
-
-    // Event listener for squeeze momentum toggle
-    document.getElementById('squeeze-momentum').addEventListener('change', function(e) {
-        if (squeezeHistogram && squeezeDots) {
-            squeezeHistogram.applyOptions({ visible: e.target.checked });
-            squeezeDots.applyOptions({ visible: e.target.checked });
-        }
-    });
+    // Initialize indicators
+    function initIndicators() {
+        const indicatorItems = document.querySelectorAll('.indicator-item');
+        const dropdown = document.querySelector('.dropdown');
+        const dropdownBtn = dropdown.querySelector('.dropdown-btn');
+        const dropdownContent = dropdown.querySelector('.dropdown-content');
+        
+        // Toggle dropdown on button click
+        dropdownBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            dropdownContent.classList.toggle('show');
+        });
+        
+        // Add click event listeners to indicator items
+        indicatorItems.forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.stopPropagation(); // Prevent dropdown from closing
+                const indicatorType = this.getAttribute('data-indicator');
+                
+                // Create new indicator instance
+                const indicatorInstance = new Indicator(chart, indicatorType);
+                indicatorInstances.push(indicatorInstance);
+                
+                // Update chart with current data
+                if (currentChartData) {
+                    updateChartData(currentChartData);
+                }
+            });
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!dropdown.contains(e.target)) {
+                dropdownContent.classList.remove('show');
+            }
+        });
+    }
 
     if (chartContainer) {
         console.log('Starting chart initialization');
         initChart();
         initSearch();  // Initialize search immediately
+        initIndicators();  // Initialize indicators
     } else {
         console.error('Chart container not found');
     }

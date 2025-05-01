@@ -11,28 +11,19 @@
         </div>
     </div>
     <div id="chart-header">
-        <div id="symbol-info">
-            <span id="current-symbol"></span>
-            <span id="current-name"></span>
+        <div class="chart-header-left">
+            <div id="symbol-info">
+                <span id="current-symbol"></span>
+                <span id="current-name"></span>
+            </div>
+            <div id="active-indicators"></div>
         </div>
         <div id="indicators-panel">
             <div class="dropdown">
                 <button class="dropdown-btn">Indicators</button>
                 <div class="dropdown-content">
-                    <div class="indicator-group">
-                        <h3>Moving Averages</h3>
-                        <label>
-                            <input type="checkbox" id="sma-toggle" checked>
-                            SMA
-                        </label>
-                    </div>
-                    <div class="indicator-group">
-                        <h3>Momentum</h3>
-                        <label>
-                            <input type="checkbox" id="squeeze-momentum" checked>
-                            Squeeze Momentum
-                        </label>
-                    </div>
+                    <div class="indicator-item" data-indicator="sma">SMA</div>
+                    <div class="indicator-item" data-indicator="squeeze-momentum">Squeeze Momentum</div>
                 </div>
             </div>
         </div>
@@ -75,6 +66,12 @@
         padding: 0 10px;
     }
 
+    .chart-header-left {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
     #symbol-info {
         display: flex;
         flex-direction: column;
@@ -82,17 +79,38 @@
         background: rgba(42, 46, 57, 0.7);
         padding: 8px 12px;
         border-radius: 4px;
+        min-width: 120px;
     }
 
-    #current-symbol {
-        font-size: 20px;
-        font-weight: 600;
+    #active-indicators {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
     }
 
-    #current-name {
+    .active-indicator {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(42, 46, 57, 0.7);
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 13px;
+        color: #d1d4dc;
+        max-width: fit-content;
+    }
+
+    .active-indicator .settings-btn,
+    .active-indicator .delete-btn {
+        cursor: pointer;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+        padding: 2px;
+    }
+
+    .active-indicator .settings-btn i,
+    .active-indicator .delete-btn i {
         font-size: 12px;
-        color: #787b86;
-        margin-top: 2px;
     }
 
     #indicators-panel {
@@ -116,10 +134,6 @@
         font-size: 14px;
     }
 
-    .dropdown-btn:hover {
-        background: #363a45;
-    }
-
     .dropdown-content {
         display: none;
         position: absolute;
@@ -132,49 +146,86 @@
         padding: 10px;
         min-width: 200px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
     }
 
-    .dropdown:hover .dropdown-content {
+    .dropdown-content.show {
         display: block;
     }
 
-    .indicator-group {
-        padding: 8px 0;
-        border-bottom: 1px solid #363a45;
-    }
-
-    .indicator-group:last-child {
-        border-bottom: none;
-    }
-
-    .indicator-group h3 {
-        color: #787b86;
-        font-size: 12px;
-        margin: 0 0 8px;
-        padding: 0 8px;
-    }
-
-    .indicator-group label {
-        display: flex;
-        align-items: center;
-        padding: 4px 8px;
+    .indicator-item {
+        padding: 8px 12px;
         color: #fff;
         cursor: pointer;
         font-size: 14px;
+        border-radius: 4px;
+        margin-bottom: 4px;
     }
 
-    .indicator-group label:hover {
+    .indicator-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .indicator-item:hover {
         background: #363a45;
     }
 
-    .indicator-group input[type="checkbox"] {
-        margin-right: 8px;
+    .indicator-item.active {
+        background: #2962ff;
+    }
+    
+    #indicator-settings {
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        margin-top: 10px;
+        background: #2a2e39;
+        border: 1px solid #363a45;
+        border-radius: 4px;
+        padding: 10px;
+        min-width: 200px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        z-index: 10;
     }
 
-    /* Fix dropdown hover gap */
-    .dropdown-content {
-        margin-top: 0;
-        padding-top: 5px;
+    #indicator-settings.hidden {
+        display: none;
+    }
+
+    .settings-header {
+        color: #d1d4dc;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 10px;
+        padding-bottom: 5px;
+        border-bottom: 1px solid #363a45;
+    }
+    
+    .settings-description {
+        color: #9598a1;
+        font-size: 12px;
+        margin-bottom: 10px;
+    }
+    
+    .settings-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        color: #d1d4dc;
+    }
+    
+    .settings-item label {
+        margin-right: 10px;
+    }
+    
+    .settings-item input[type="color"] {
+        width: 24px;
+        height: 24px;
+        border: none;
+        background: none;
+        cursor: pointer;
     }
 
     #search-overlay {
@@ -282,9 +333,12 @@
         }
     });
 </script>
+<!-- Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 <!-- Load libraries first -->
 <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 <!-- Load indicators -->
+<script src="{{ url_for('static', filename='js/indicators/indicator.js') }}"></script>
 <script src="{{ url_for('static', filename='js/indicators/smaIndicator.js') }}"></script>
 <script src="{{ url_for('static', filename='js/indicators/squeezeIndicator.js') }}"></script>
 <!-- Load main chart script last -->
