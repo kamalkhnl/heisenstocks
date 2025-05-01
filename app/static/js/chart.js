@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let selectedIndex = 0;
     let suggestions = [];
     let currentSymbolInfo = null;
-    let currentChartData = null;
+    window.currentChartData = null; // Make currentChartData globally accessible
     let indicatorInstances = [];
     const MAIN_PANE_RATIO = 0.8; // 70% for main chart, 30% for indicator
 
@@ -328,7 +328,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function updateChartData(chartData) {
         if (!chartData || !candlestickSeries) return;
-        currentChartData = chartData;  // Store the data
+        window.currentChartData = chartData;  // Update the global reference
 
         // Ensure candlestick series is updated
         requestAnimationFrame(() => {
@@ -414,8 +414,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 indicatorInstances.push(indicatorInstance);
                 
                 // Update chart with current data
-                if (currentChartData) {
-                    updateChartData(currentChartData);
+                if (window.currentChartData) {
+                    updateChartData(window.currentChartData);
                 }
             });
         });

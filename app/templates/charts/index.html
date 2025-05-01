@@ -30,6 +30,51 @@
     </div>
     <div id="container"></div>
 </div>
+
+<!-- Add settings dialog after the chart container -->
+<div id="settings-dialog" class="settings-dialog hidden">
+    <div class="settings-dialog-content">
+        <div class="settings-header">
+            <span id="settings-title">Indicator Settings</span>
+        </div>
+        <div class="settings-body">
+            <!-- SMA Settings -->
+            <div id="sma-settings" class="indicator-specific-settings hidden">
+                <div class="settings-item">
+                    <label for="sma-length">Length</label>
+                    <input type="number" id="sma-length" min="1" value="20">
+                </div>
+                <div class="settings-item">
+                    <label for="sma-color">Color</label>
+                    <input type="color" id="sma-color" value="#2962FF">
+                </div>
+            </div>
+            <!-- Squeeze Momentum Settings -->
+            <div id="squeeze-settings" class="indicator-specific-settings hidden">
+                <div class="settings-item">
+                    <label for="squeeze-up-color">Strong Up Color</label>
+                    <input type="color" id="squeeze-up-color" value="#00ff00">
+                </div>
+                <div class="settings-item">
+                    <label for="squeeze-weak-up-color">Weak Up Color</label>
+                    <input type="color" id="squeeze-weak-up-color" value="#008000">
+                </div>
+                <div class="settings-item">
+                    <label for="squeeze-down-color">Strong Down Color</label>
+                    <input type="color" id="squeeze-down-color" value="#ff0000">
+                </div>
+                <div class="settings-item">
+                    <label for="squeeze-weak-down-color">Weak Down Color</label>
+                    <input type="color" id="squeeze-weak-down-color" value="#800000">
+                </div>
+            </div>
+        </div>
+        <div class="settings-footer">
+            <button id="settings-cancel" class="btn">Cancel</button>
+            <button id="settings-ok" class="btn btn-primary">OK</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_css %}
@@ -320,6 +365,108 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+
+    .settings-dialog {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .settings-dialog.hidden {
+        display: none;
+    }
+
+    .settings-dialog-content {
+        background: #1e222d;
+        border: 1px solid #363a45;
+        border-radius: 6px;
+        width: 300px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    }
+
+    .settings-header {
+        padding: 16px;
+        border-bottom: 1px solid #363a45;
+        font-size: 16px;
+        font-weight: 600;
+        color: #d1d4dc;
+    }
+
+    .settings-body {
+        padding: 16px;
+    }
+
+    .indicator-specific-settings {
+        display: none;
+    }
+
+    .indicator-specific-settings.active {
+        display: block;
+    }
+
+    .settings-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .settings-item label {
+        color: #d1d4dc;
+        font-size: 14px;
+    }
+
+    .settings-item input[type="number"] {
+        width: 80px;
+        background: #2a2e39;
+        border: 1px solid #363a45;
+        color: #d1d4dc;
+        padding: 4px 8px;
+        border-radius: 4px;
+    }
+
+    .settings-item input[type="color"] {
+        width: 30px;
+        height: 30px;
+        border: none;
+        border-radius: 4px;
+        background: none;
+        cursor: pointer;
+    }
+
+    .settings-footer {
+        padding: 16px;
+        border-top: 1px solid #363a45;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+
+    .settings-footer .btn {
+        padding: 6px 16px;
+        border-radius: 4px;
+        font-size: 14px;
+        cursor: pointer;
+        border: 1px solid #363a45;
+    }
+
+    .settings-footer .btn-primary {
+        background: #2962FF;
+        color: white;
+        border: none;
+    }
+
+    .settings-footer .btn:not(.btn-primary) {
+        background: transparent;
+        color: #d1d4dc;
     }
 </style>
 {% endblock %}

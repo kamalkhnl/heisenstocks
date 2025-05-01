@@ -3,25 +3,34 @@ class Indicator {
         this.chart = chart;
         this.type = type;
         this.series = [];
+        this.settings = {
+            sma: {
+                period: 20,
+                color: '#2962FF'
+            },
+            'squeeze-momentum': {
+                strongUpColor: '#00ff00',
+                weakUpColor: '#008000',
+                strongDownColor: '#ff0000',
+                weakDownColor: '#800000'
+            }
+        };
+        this.tempSettings = {}; // For storing temporary changes
         this.init();
     }
 
     init() {
         if (this.type === 'sma') {
             const { LineSeries } = LightweightCharts;
-            // Single SMA with 20 period
-            const period = 20;
-            const color = '#2962FF';
-            
             this.series.push(this.chart.addSeries(LineSeries, {
-                color: color,
+                color: this.settings.sma.color,
                 lineWidth: 2,
-                title: `MA ${period}`
+                title: `MA ${this.settings.sma.period}`
             }, 0));
         } else if (this.type === 'squeeze-momentum') {
             const { HistogramSeries } = LightweightCharts;
             this.series.push(this.chart.addSeries(HistogramSeries, {
-                color: '#26a69a',
+                color: this.settings['squeeze-momentum'].strongUpColor,
                 base: 0,
                 lineWidth: 4,
                 title: 'Squeeze Mo'
@@ -46,9 +55,8 @@ class Indicator {
             <span class="delete-btn"><i class="fas fa-times"></i></span>
         `;
 
-        // Add event listeners for buttons
         element.querySelector('.settings-btn').addEventListener('click', () => {
-            // Settings functionality will be added later
+            this.showSettings();
         });
 
         element.querySelector('.delete-btn').addEventListener('click', () => {
@@ -57,6 +65,179 @@ class Indicator {
 
         document.getElementById('active-indicators').appendChild(element);
         this.element = element;
+    }
+
+    showSettings() {
+        const dialog = document.getElementById('settings-dialog');
+        const settingsContentId = this.type === 'squeeze-momentum' ? 'squeeze-settings' : `${this.type}-settings`;
+        const settingsContent = document.getElementById(settingsContentId);
+        
+        // Hide all indicator settings and show the current one
+        document.querySelectorAll('.indicator-specific-settings').forEach(el => el.classList.remove('active'));
+        settingsContent.classList.add('active');
+        
+        // Set current values
+        this.tempSettings = JSON.parse(JSON.stringify(this.settings[this.type]));
+        
+        // Remove any existing event listeners
+        this.removeSettingsEventListeners();
+        
+        // Setup new event listeners for dialog buttons
+        const okButton = document.getElementById('settings-ok');
+        const cancelButton = document.getElementById('settings-cancel');
+        
+        this.okHandler = () => {
+            this.applySettings();
+            dialog.classList.add('hidden');
+            this.removeSettingsEventListeners();
+        };
+        
+        this.cancelHandler = () => {
+            this.revertChanges();
+            dialog.classList.add('hidden');
+            this.removeSettingsEventListeners();
+        };
+        
+        // Add click handler for closing when clicking outside
+        this.overlayHandler = (e) => {
+            if (e.target === dialog) {
+                this.cancelHandler();
+            }
+        };
+        
+        okButton.addEventListener('click', this.okHandler);
+        cancelButton.addEventListener('click', this.cancelHandler);
+        dialog.addEventListener('click', this.overlayHandler);
+        
+        if (this.type === 'sma') {
+            const lengthInput = document.getElementById('sma-length');
+            const colorInput = document.getElementById('sma-color');
+            
+            lengthInput.value = this.settings.sma.period;
+            colorInput.value = this.settings.sma.color;
+            
+            this.colorHandler = (e) => {
+                this.tempSettings.color = e.target.value;
+                this.previewChanges();
+            };
+            
+            this.lengthHandler = (e) => {
+                this.tempSettings.period = parseInt(e.target.value);
+                if (window.currentChartData) {
+                    this.updateData(window.currentChartData, true);
+                }
+            };
+            
+            colorInput.addEventListener('input', this.colorHandler);
+            lengthInput.addEventListener('input', this.lengthHandler);
+            
+        } else if (this.type === 'squeeze-momentum') {
+            const colorInputs = [
+                { id: 'squeeze-up-color', key: 'strongUpColor' },
+                { id: 'squeeze-weak-up-color', key: 'weakUpColor' },
+                { id: 'squeeze-down-color', key: 'strongDownColor' },
+                { id: 'squeeze-weak-down-color', key: 'weakDownColor' }
+            ];
+            
+            this.squeezeColorHandlers = [];
+            
+            colorInputs.forEach(({ id, key }) => {
+                const input = document.getElementById(id);
+                input.value = this.settings['squeeze-momentum'][key];
+                
+                const handler = (e) => {
+                    this.tempSettings[key] = e.target.value;
+                    this.previewChanges();
+                };
+                
+                this.squeezeColorHandlers.push({ input, handler });
+                input.addEventListener('input', handler);
+            });
+        }
+        
+        dialog.classList.remove('hidden');
+    }
+    
+    removeSettingsEventListeners() {
+        const dialog = document.getElementById('settings-dialog');
+        const okButton = document.getElementById('settings-ok');
+        const cancelButton = document.getElementById('settings-cancel');
+        
+        if (this.okHandler) {
+            okButton.removeEventListener('click', this.okHandler);
+        }
+        if (this.cancelHandler) {
+            cancelButton.removeEventListener('click', this.cancelHandler);
+        }
+        if (this.overlayHandler) {
+            dialog.removeEventListener('click', this.overlayHandler);
+        }
+        
+        if (this.type === 'sma') {
+            const lengthInput = document.getElementById('sma-length');
+            const colorInput = document.getElementById('sma-color');
+            
+            if (this.colorHandler) {
+                colorInput.removeEventListener('input', this.colorHandler);
+            }
+            if (this.lengthHandler) {
+                lengthInput.removeEventListener('input', this.lengthHandler);
+            }
+        } else if (this.type === 'squeeze-momentum' && this.squeezeColorHandlers) {
+            this.squeezeColorHandlers.forEach(({ input, handler }) => {
+                input.removeEventListener('input', handler);
+            });
+            this.squeezeColorHandlers = [];
+        }
+    }
+
+    previewChanges() {
+        if (this.type === 'sma') {
+            this.series[0].applyOptions({ 
+                color: this.tempSettings.color,
+                title: `MA ${this.tempSettings.period}`
+            });
+            if (window.currentChartData) {
+                this.updateData(window.currentChartData, true);
+            }
+        } else if (this.type === 'squeeze-momentum') {
+            if (window.currentChartData) {
+                this.updateData(window.currentChartData, true);
+            }
+        }
+    }
+
+    revertChanges() {
+        if (this.type === 'sma') {
+            this.series[0].applyOptions({ 
+                color: this.settings.sma.color,
+                title: `MA ${this.settings.sma.period}`
+            });
+        }
+        if (window.currentChartData) {
+            this.updateData(window.currentChartData);
+        }
+    }
+
+    applySettings() {
+        if (this.type === 'sma') {
+            const newPeriod = parseInt(document.getElementById('sma-length').value);
+            const newColor = document.getElementById('sma-color').value;
+            
+            this.settings.sma.period = newPeriod;
+            this.settings.sma.color = newColor;
+            
+            this.series[0].applyOptions({
+                color: newColor,
+                title: `MA ${newPeriod}`
+            });
+        } else if (this.type === 'squeeze-momentum') {
+            Object.assign(this.settings['squeeze-momentum'], this.tempSettings);
+        }
+        
+        if (window.currentChartData) {
+            this.updateData(window.currentChartData);
+        }
     }
 
     getDisplayName() {
@@ -70,19 +251,21 @@ class Indicator {
         }
     }
 
-    updateData(chartData) {
+    updateData(chartData, preview = false) {
         if (this.type === 'sma') {
-            const smaIndicator = new SMAIndicator(20);
+            const settings = preview ? this.tempSettings : this.settings.sma;
+            const smaIndicator = new SMAIndicator(settings.period);
             const smaData = smaIndicator.calculate(chartData);
             this.series[0].setData(smaData);
         } else if (this.type === 'squeeze-momentum') {
             const squeezeIndicator = new SqueezeIndicator();
             const squeezeData = squeezeIndicator.calculate(chartData);
 
+            const settings = preview ? this.tempSettings : this.settings['squeeze-momentum'];
             const histogramData = squeezeData.map(item => ({
                 time: item.time,
                 value: item.value,
-                color: this.getHistogramColor(item)
+                color: this.getHistogramColor(item, settings)
             }));
 
             const dotsData = squeezeData.map(item => ({
@@ -96,12 +279,12 @@ class Indicator {
         }
     }
 
-    getHistogramColor(item) {
+    getHistogramColor(item, settings = this.settings['squeeze-momentum']) {
         switch(item.momentum) {
-            case 'strong_up': return '#00ff00';
-            case 'weak_up': return '#008000';
-            case 'strong_down': return '#ff0000';
-            case 'weak_down': return '#800000';
+            case 'strong_up': return settings.strongUpColor;
+            case 'weak_up': return settings.weakUpColor;
+            case 'strong_down': return settings.strongDownColor;
+            case 'weak_down': return settings.weakDownColor;
             default: return '#808080';
         }
     }
@@ -113,13 +296,10 @@ class Indicator {
     }
 
     remove() {
-        // Remove series from chart
         this.series.forEach(series => this.chart.removeSeries(series));
-        // Remove UI element
         if (this.element) {
             this.element.remove();
         }
-        // Remove from instances array
         const index = indicatorInstances.indexOf(this);
         if (index > -1) {
             indicatorInstances.splice(index, 1);
