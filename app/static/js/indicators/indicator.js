@@ -1,7 +1,8 @@
 class Indicator {
-    constructor(chart, type) {
+    constructor(chart, type, skipInit = false) {
         this.chart = chart;
         this.type = type;
+        this.id = Math.random().toString(36).substring(2, 10); // Generate a unique ID
         this.series = [];
         this.settings = {
             sma: {
@@ -16,7 +17,12 @@ class Indicator {
             }
         };
         this.tempSettings = {}; // For storing temporary changes
-        this.init();
+        this.element = null;
+        
+        // Only initialize immediately if skipInit is false
+        if (!skipInit) {
+            this.init();
+        }
     }
 
     init() {
@@ -29,21 +35,52 @@ class Indicator {
             }, 0));
         } else if (this.type === 'squeeze-momentum') {
             const { HistogramSeries } = LightweightCharts;
-            this.series.push(this.chart.addSeries(HistogramSeries, {
-                color: this.settings['squeeze-momentum'].strongUpColor,
-                base: 0,
-                lineWidth: 4,
-                title: 'Squeeze Mo'
-            }, 1));
-            this.series.push(this.chart.addSeries(HistogramSeries, {
-                color: 'blue',
-                base: 0,
-                lineWidth: 2,
-                title: 'Squeeze'
-            }, 1));
+            
+            // Check if we need to create a second pane for indicators
+            const panes = this.chart.panes ? this.chart.panes() : null;
+            
+            // If chart.panes() doesn't exist or there's only one pane, create a second pane
+            if (!panes || panes.length < 2) {
+                try {
+                    // First check if we can get chart options to determine current height
+                    const chartHeight = this.chart.options() ? this.chart.options().height : null;
+                    const newPaneHeight = chartHeight ? Math.floor(chartHeight * 0.2) : 100;
+                    
+                    // If chart has an addPane method, use it
+                    if (typeof this.chart.addPane === 'function') {
+                        this.chart.addPane({ height: newPaneHeight });
+                    } 
+                } catch (e) {
+                    console.warn("Couldn't create indicator pane:", e);
+                }
+            }
+            
+            // Add the squeeze momentum series to pane 1 (index based, 0 is the main chart pane)
+            try {
+                this.series.push(this.chart.addSeries(HistogramSeries, {
+                    color: this.settings['squeeze-momentum'].strongUpColor,
+                    base: 0,
+                    lineWidth: 4,
+                    title: 'Squeeze Mo'
+                }, 1));
+                
+                this.series.push(this.chart.addSeries(HistogramSeries, {
+                    color: 'blue',
+                    base: 0,
+                    lineWidth: 2,
+                    title: 'Squeeze'
+                }, 1));
+            } catch (e) {
+                console.error("Error adding squeeze momentum series:", e);
+            }
         }
         
         this.createIndicatorElement();
+        
+        // Immediately update with chart data if available
+        if (window.currentChartData) {
+            this.updateData(window.currentChartData);
+        }
     }
 
     createIndicatorElement() {
@@ -243,7 +280,7 @@ class Indicator {
     getDisplayName() {
         switch(this.type) {
             case 'sma':
-                return 'Moving Average';
+                return `MA ${this.settings.sma.period}`;
             case 'squeeze-momentum':
                 return 'Squeeze Momentum';
             default:
@@ -296,10 +333,29 @@ class Indicator {
     }
 
     remove() {
-        this.series.forEach(series => this.chart.removeSeries(series));
+        // First remove all series from the chart
+        this.series.forEach(series => {
+            try {
+                this.chart.removeSeries(series);
+            } catch(e) {
+                console.warn("Error removing series:", e);
+            }
+        });
+
+        // Clear the series array to prevent potential double application issues
+        this.series = [];
+        
+        // Remove UI element
         if (this.element) {
             this.element.remove();
+            this.element = null;
         }
+        
+        // Add this indicator's ID to the global removedIndicatorIds Set
+        window.removedIndicatorIds = window.removedIndicatorIds || new Set();
+        window.removedIndicatorIds.add(this.id);
+        
+        // Remove from global instances array
         const index = indicatorInstances.indexOf(this);
         if (index > -1) {
             indicatorInstances.splice(index, 1);

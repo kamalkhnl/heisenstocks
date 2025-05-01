@@ -14,6 +14,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentSymbolInfo = null;
     window.currentChartData = null; // Make currentChartData globally accessible
     let indicatorInstances = [];
+    // Track explicitly removed indicators by ID instead of by type
+    window.removedIndicatorIds = window.removedIndicatorIds || new Set();
     const MAIN_PANE_RATIO = 0.8; // 70% for main chart, 30% for indicator
 
     function applyPaneLayout() {
@@ -61,28 +63,181 @@ document.addEventListener('DOMContentLoaded', function() {
                     close: parseFloat(item.close || item.value)
                 }));
 
-                // Remove existing candlestick series if it exists
-                if (candlestickSeries) {
-                    chart.removeSeries(candlestickSeries);
+                // Save indicator configurations but don't create new instances yet
+                const indicatorConfigs = [];
+                
+                // Save all indicator instances including duplicates of the same type
+                indicatorInstances.forEach(indicator => {
+                    indicatorConfigs.push({
+                        type: indicator.type,
+                        settings: JSON.parse(JSON.stringify(indicator.settings)),
+                        id: indicator.id || Math.random().toString(36).substring(2, 10) // Preserve or create unique ID
+                    });
+                });
+                
+                // IMPORTANT: Clear all existing indicators from the UI
+                document.getElementById('active-indicators').innerHTML = '';
+                
+                // Clear the global indicator instances array
+                indicatorInstances = [];
+                
+                // Completely recreate the chart with the same options
+                if (chart) {
+                    // Store current chart dimensions and options
+                    const width = chartContainer.clientWidth;
+                    const height = chartContainer.clientHeight;
+
+                    // Remove old chart completely to clean up all series and event handlers
+                    chart.remove();
+                    
+                    // Create new chart with the same options
+                    chart = createChart(chartContainer, {
+                        width: width,
+                        height: height,
+                        layout: {
+                            textColor: 'white',
+                            background: { type: 'solid', color: '#131722' },
+                            panes: {
+                                separatorColor: '#f22c3d',
+                                separatorHoverColor: 'rgba(255, 0, 0, 0.1)',
+                                separatorLineWidth: 3,
+                                enableResize: false
+                            }
+                        },
+                        grid: {
+                            vertLines: { 
+                                color: 'rgba(255, 255, 255, 0.1)',
+                                style: 1,
+                                visible: true
+                            },
+                            horzLines: { 
+                                color: 'rgba(255, 255, 255, 0.1)',
+                                style: 1,
+                                visible: true
+                            }
+                        },
+                        timeScale: {
+                            timeVisible: true,
+                            secondsVisible: false,
+                            barSpacing: 5,
+                        }
+                    });
+                    
+                    // Set right offset
+                    chart.timeScale().applyOptions({rightOffset: 10});
+                    
+                    // Add second pane if we had indicators that need it
+                    if (indicatorConfigs.some(ind => ind.type === 'squeeze-momentum')) {
+                        try {
+                            // Only add secondary pane if we have indicators that need it
+                            if (typeof chart.addPane === 'function') {
+                                const mainPaneHeight = Math.floor(height * MAIN_PANE_RATIO);
+                                const secondaryPaneHeight = height - mainPaneHeight;
+                                chart.addPane({ height: secondaryPaneHeight });
+                            }
+                        } catch (e) {
+                            console.warn('Could not create secondary pane:', e);
+                        }
+                    }
+                    
+                    // Add candlestick series to new chart
+                    candlestickSeries = chart.addSeries(
+                        CandlestickSeries,
+                        {
+                            upColor: '#26a69a',
+                            downColor: '#ef5350',
+                            borderVisible: false,
+                            wickUpColor: '#26a69a',
+                            wickDownColor: '#ef5350'
+                        },
+                        0  // Main pane
+                    );
+                    
+                    // Set data for candlestick series
+                    candlestickSeries.setData(chartData);
+                    
+                    // Store the chart data globally
+                    window.currentChartData = chartData;
+                    
+                    // Now that chart is fully set up, recreate indicators one by one
+                    for (const config of indicatorConfigs) {
+                        // Skip recreating indicators that were explicitly removed
+                        if (window.removedIndicatorIds.has(config.id)) continue;
+
+                        // Create a new indicator with skipInit=true to prevent automatic initialization
+                        const newIndicator = new Indicator(chart, config.type, true);
+                        
+                        // Copy settings before creating UI element or series
+                        for (const key in config.settings) {
+                            if (newIndicator.settings[key]) {
+                                newIndicator.settings[key] = JSON.parse(JSON.stringify(config.settings[key]));
+                            }
+                        }
+                        
+                        // Add to global array
+                        indicatorInstances.push(newIndicator);
+                        
+                        // Instead of calling init directly, call our special method for recreation
+                        recreateIndicator(newIndicator);
+                    }
+                    
+                    // Apply pane layout after all indicators are created
+                    applyPaneLayout();
                 }
-
-                // Create new candlestick series
-                candlestickSeries = chart.addSeries(
-                    CandlestickSeries,
-                    {
-                        upColor: '#26a69a',
-                        downColor: '#ef5350',
-                        borderVisible: false,
-                        wickUpColor: '#26a69a',
-                        wickDownColor: '#ef5350'
-                    },
-                    0  // Main pane
-                );
-
-                updateChartData(chartData);
             }
         } catch (error) {
             console.error('Error loading symbol data:', error);
+        }
+    }
+    
+    // Helper function to properly recreate indicators
+    function recreateIndicator(indicator) {
+        try {
+            // Make sure the series array is cleared
+            indicator.series = [];
+            
+            // Initialize indicator without creating UI element
+            if (indicator.type === 'sma') {
+                const { LineSeries } = LightweightCharts;
+                indicator.series.push(chart.addSeries(LineSeries, {
+                    color: indicator.settings.sma.color,
+                    lineWidth: 2,
+                    title: `MA ${indicator.settings.sma.period}`
+                }, 0));
+            } else if (indicator.type === 'squeeze-momentum') {
+                const { HistogramSeries } = LightweightCharts;
+                
+                // Add series to pane 1
+                indicator.series.push(chart.addSeries(HistogramSeries, {
+                    color: indicator.settings['squeeze-momentum'].strongUpColor,
+                    base: 0,
+                    lineWidth: 4,
+                    title: 'Squeeze Mo'
+                }, 1));
+                
+                indicator.series.push(chart.addSeries(HistogramSeries, {
+                    color: 'blue',
+                    base: 0,
+                    lineWidth: 2,
+                    title: 'Squeeze'
+                }, 1));
+            }
+            
+            // Create UI element
+            indicator.createIndicatorElement();
+            
+            // Update with data
+            if (window.currentChartData) {
+                indicator.updateData(window.currentChartData);
+            }
+        } catch (e) {
+            console.error("Error recreating indicator:", e);
+            
+            // Remove from global array if initialization failed
+            const index = indicatorInstances.indexOf(indicator);
+            if (index > -1) {
+                indicatorInstances.splice(index, 1);
+            }
         }
     }
 
@@ -411,6 +566,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Create new indicator instance
                 const indicatorInstance = new Indicator(chart, indicatorType);
+                
+                // If this indicator type was previously removed, remove it from the removed list
+                if (window.removedIndicatorIds.has(indicatorInstance.id)) {
+                    window.removedIndicatorIds.delete(indicatorInstance.id);
+                }
+                
                 indicatorInstances.push(indicatorInstance);
                 
                 // Update chart with current data
