@@ -26,3 +26,54 @@ class SMAIndicator {
         return result;
     }
 }
+
+class SMAManager {
+    constructor(chart, mainPane) {
+        this.chart = chart;
+        this.mainPane = mainPane;
+        this.smaLines = new Map(); // Store multiple SMA lines
+    }
+
+    addSMA(period, color) {
+        const { LineSeries } = LightweightCharts;
+        const smaLine = this.chart.addSeries(LineSeries, {
+            color: color,
+            lineWidth: 2,
+            title: `SMA ${period}`
+        }, this.mainPane);
+
+        this.smaLines.set(period, { line: smaLine, color });
+        return smaLine;
+    }
+
+    updateSMAColor(period, color) {
+        const sma = this.smaLines.get(period);
+        if (sma) {
+            sma.color = color;
+            sma.line.applyOptions({ color });
+        }
+    }
+
+    updateData(chartData) {
+        this.smaLines.forEach((sma, period) => {
+            const smaIndicator = new SMAIndicator(period);
+            const smaData = smaIndicator.calculate(chartData);
+            sma.line.setData(smaData);
+        });
+    }
+
+    removeSMA(period) {
+        const sma = this.smaLines.get(period);
+        if (sma) {
+            this.chart.removeSeries(sma.line);
+            this.smaLines.delete(period);
+        }
+    }
+
+    removeAll() {
+        this.smaLines.forEach((sma) => {
+            this.chart.removeSeries(sma.line);
+        });
+        this.smaLines.clear();
+    }
+}

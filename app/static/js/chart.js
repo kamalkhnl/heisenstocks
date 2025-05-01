@@ -293,7 +293,7 @@ document.addEventListener('DOMContentLoaded', function() {
             );
 
             // Initialize SMA manager
-            smaManager = new SMAChartManager(chart, 0);
+            smaManager = new SMAManager(chart, 0);
             // Add default SMAs
             smaManager.addSMA(20, '#2962FF');  // Blue
             smaManager.addSMA(50, '#FF6D00');  // Orange

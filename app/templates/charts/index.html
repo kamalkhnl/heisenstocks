@@ -131,17 +131,19 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- Error handling for LightweightCharts -->
 <script>
-    // Check if LightweightCharts loads correctly
     window.addEventListener('error', function(e) {
         if (e.message.includes('LightweightCharts')) {
             console.error('Error loading LightweightCharts:', e);
         }
     });
 </script>
+<!-- Load libraries first -->
 <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+<!-- Load indicators -->
 <script src="{{ url_for('static', filename='js/indicators/smaIndicator.js') }}"></script>
 <script src="{{ url_for('static', filename='js/indicators/squeezeIndicator.js') }}"></script>
-<script src="{{ url_for('static', filename='js/indicators/smaChartManager.js') }}"></script>
+<!-- Load main chart script last -->
 <script src="{{ url_for('static', filename='js/chart.js') }}"></script>
 {% endblock %}
