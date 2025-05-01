@@ -1,9 +1,13 @@
 document.addEventListener('DOMContentLoaded', function() {
     const chartContainer = document.getElementById('container');
     const { createChart, AreaSeries, CandlestickSeries } = LightweightCharts;
+    let chart;
+    let initialLayoutSet = false;
 
     function initChart() {
-        const chart = createChart(chartContainer, {
+        const chartOptions = {
+            width: chartContainer.clientWidth,
+            height: chartContainer.clientHeight,
             layout: {
                 textColor: 'white',
                 background: { type: 'solid', color: '#131722' },
@@ -17,15 +21,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 vertLines: { visible: false },
                 horzLines: { visible: false }
             }
-        });
+        };
 
-        const areaSeries = chart.addSeries(AreaSeries, {
-            topColor: '#2962FF',
-            bottomColor: 'rgba(41, 98, 255, 0.28)',
-            lineColor: '#2962FF',
-            lineWidth: 2
-        });
+        chart = createChart(chartContainer, chartOptions);
 
+        // Handle window resizing - only update dimensions, not pane order
+        function handleResize() {
+            chart.applyOptions({
+                width: chartContainer.clientWidth,
+                height: chartContainer.clientHeight
+            });
+            
+            // Only update heights, not positions
+            const panes = chart.panes();
+            if (panes && panes.length > 1) {
+                const totalHeight = chartContainer.clientHeight;
+                const mainPane = panes[0];
+                if (mainPane) {
+                    mainPane.setHeight(Math.floor(totalHeight * 0.8));
+                }
+            }
+        }
+
+        window.addEventListener('resize', handleResize);
+
+        // Create candlestick series first in pane 0 (main pane)
         const candlestickSeries = chart.addSeries(
             CandlestickSeries,
             {
@@ -35,8 +55,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 wickUpColor: '#26a69a',
                 wickDownColor: '#ef5350'
             },
-            1
+            0  // Main pane
         );
+
+        // Create area series in pane 1
+        const areaSeries = chart.addSeries(AreaSeries, {
+            topColor: '#2962FF',
+            bottomColor: 'rgba(41, 98, 255, 0.28)',
+            lineColor: '#2962FF',
+            lineWidth: 2
+        }, 1);  // Bottom pane
 
         // Fetch and set data
         const params = new URLSearchParams(window.location.search);
@@ -60,13 +88,21 @@ document.addEventListener('DOMContentLoaded', function() {
                         value: parseFloat(item.close || item.value)
                     }));
 
-                    areaSeries.setData(areaData);
+                    // Set data for both series
                     candlestickSeries.setData(chartData);
+                    areaSeries.setData(areaData);
 
-                    // Set up pane heights and order
-                    const candlesPane = chart.panes()[1];
-                    candlesPane.moveTo(0);
-                    candlesPane.setHeight(500);
+                    // Set initial layout only once
+                    if (!initialLayoutSet) {
+                        const panes = chart.panes();
+                        if (panes && panes.length > 1) {
+                            const mainPane = panes[0];
+                            if (mainPane) {
+                                mainPane.setHeight(Math.floor(chartContainer.clientHeight * 0.8));
+                            }
+                            initialLayoutSet = true;
+                        }
+                    }
 
                     chart.timeScale().fitContent();
                 }

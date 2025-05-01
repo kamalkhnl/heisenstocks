@@ -227,6 +227,7 @@
             {% block content %}{% endblock %}
             
             <!-- Footer -->
+            {% if not request.endpoint.startswith('charts') %}
             <footer class="footer">
                 <div>
                     <span class="text-secondary">© {{ now.year }} STONKS Trading Platform</span>
@@ -237,6 +238,7 @@
                     </span>
                 </div>
             </footer>
+            {% endif %}
         </div>
     </div>
 
