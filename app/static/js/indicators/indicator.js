@@ -14,6 +14,22 @@ class Indicator {
                 weakUpColor: '#008000',
                 strongDownColor: '#ff0000',
                 weakDownColor: '#800000'
+            },
+            'ssl-hybrid': {
+                baselineLength: 20, // Reduced from 60 to be more responsive
+                ssl2Length: 5,
+                exitLength: 15,
+                atrLength: 14,
+                atrMultiplier: 1,
+                baseChannelMultiplier: 0.2,
+                continuationAtrCriteria: 0.9,
+                baselineColor: '#2962FF',
+                ssl1Color: '#00c3ff',
+                ssl2Color: '#ffffff',
+                exitColor: '#ff0062',
+                atrColor: '#b2b5be',
+                upperKColor: '#8097ff',
+                lowerKColor: '#8097ff'
             }
         };
         this.tempSettings = {}; // For storing temporary changes
@@ -73,6 +89,16 @@ class Indicator {
             } catch (e) {
                 console.error("Error adding squeeze momentum series:", e);
             }
+        } else if (this.type === 'ssl-hybrid') {
+            const { LineSeries } = LightweightCharts;
+            const settings = this.settings['ssl-hybrid'];
+            
+            // Add only the baseline - we'll handle color changes in the data
+            this.series.push(this.chart.addSeries(LineSeries, {
+                lineWidth: 3,
+                title: 'SSL Baseline',
+                lastValueVisible: false
+            }, 0));
         }
         
         this.createIndicatorElement();
@@ -106,7 +132,10 @@ class Indicator {
 
     showSettings() {
         const dialog = document.getElementById('settings-dialog');
-        const settingsContentId = this.type === 'squeeze-momentum' ? 'squeeze-settings' : `${this.type}-settings`;
+        const settingsContentId = 
+            this.type === 'squeeze-momentum' ? 'squeeze-settings' : 
+            this.type === 'ssl-hybrid' ? 'ssl-hybrid-settings' : 
+            `${this.type}-settings`;
         const settingsContent = document.getElementById(settingsContentId);
         
         // Hide all indicator settings and show the current one
@@ -190,6 +219,49 @@ class Indicator {
                 this.squeezeColorHandlers.push({ input, handler });
                 input.addEventListener('input', handler);
             });
+        } else if (this.type === 'ssl-hybrid') {
+            // Set up SSL Hybrid settings
+            this.sslInputHandlers = [];
+            
+            // Length settings
+            const baselineLengthInput = document.getElementById('ssl-baseline-length');
+            const ssl2LengthInput = document.getElementById('ssl-ssl2-length');
+            const exitLengthInput = document.getElementById('ssl-exit-length');
+            
+            // Color settings
+            const baselineColorInput = document.getElementById('ssl-baseline-color');
+            const ssl2ColorInput = document.getElementById('ssl-ssl2-color');
+            const exitColorInput = document.getElementById('ssl-exit-color');
+            
+            // Set initial values
+            baselineLengthInput.value = this.settings['ssl-hybrid'].baselineLength;
+            ssl2LengthInput.value = this.settings['ssl-hybrid'].ssl2Length;
+            exitLengthInput.value = this.settings['ssl-hybrid'].exitLength;
+            baselineColorInput.value = this.settings['ssl-hybrid'].baselineColor;
+            ssl2ColorInput.value = this.settings['ssl-hybrid'].ssl2Color;
+            exitColorInput.value = this.settings['ssl-hybrid'].exitColor;
+            
+            // Set up handlers for each input
+            const inputs = [
+                { input: baselineLengthInput, key: 'baselineLength', isNumber: true },
+                { input: ssl2LengthInput, key: 'ssl2Length', isNumber: true },
+                { input: exitLengthInput, key: 'exitLength', isNumber: true },
+                { input: baselineColorInput, key: 'baselineColor', isNumber: false },
+                { input: ssl2ColorInput, key: 'ssl2Color', isNumber: false },
+                { input: exitColorInput, key: 'exitColor', isNumber: false }
+            ];
+            
+            inputs.forEach(({ input, key, isNumber }) => {
+                const handler = (e) => {
+                    this.tempSettings[key] = isNumber ? parseInt(e.target.value) : e.target.value;
+                    if (window.currentChartData) {
+                        this.updateData(window.currentChartData, true);
+                    }
+                };
+                
+                this.sslInputHandlers.push({ input, handler });
+                input.addEventListener('input', handler);
+            });
         }
         
         dialog.classList.remove('hidden');
@@ -225,6 +297,11 @@ class Indicator {
                 input.removeEventListener('input', handler);
             });
             this.squeezeColorHandlers = [];
+        } else if (this.type === 'ssl-hybrid' && this.sslInputHandlers) {
+            this.sslInputHandlers.forEach(({ input, handler }) => {
+                input.removeEventListener('input', handler);
+            });
+            this.sslInputHandlers = [];
         }
     }
 
@@ -270,6 +347,30 @@ class Indicator {
             });
         } else if (this.type === 'squeeze-momentum') {
             Object.assign(this.settings['squeeze-momentum'], this.tempSettings);
+        } else if (this.type === 'ssl-hybrid') {
+            // Get values from the settings inputs
+            const baselineLength = parseInt(document.getElementById('ssl-baseline-length').value);
+            const ssl2Length = parseInt(document.getElementById('ssl-ssl2-length').value);
+            const exitLength = parseInt(document.getElementById('ssl-exit-length').value);
+            const baselineColor = document.getElementById('ssl-baseline-color').value;
+            const ssl2Color = document.getElementById('ssl-ssl2-color').value;
+            const exitColor = document.getElementById('ssl-exit-color').value;
+            
+            // Update the settings object
+            Object.assign(this.settings['ssl-hybrid'], {
+                baselineLength: baselineLength,
+                ssl2Length: ssl2Length,
+                exitLength: exitLength,
+                baselineColor: baselineColor,
+                ssl2Color: ssl2Color,
+                exitColor: exitColor
+            });
+            
+            // Apply options to series
+            this.series[0].applyOptions({ 
+                color: baselineColor,
+                title: `SSL Baseline ${baselineLength}`
+            });
         }
         
         if (window.currentChartData) {
@@ -283,6 +384,8 @@ class Indicator {
                 return `MA ${this.settings.sma.period}`;
             case 'squeeze-momentum':
                 return 'Squeeze Momentum';
+            case 'ssl-hybrid':
+                return 'SSL Hybrid';
             default:
                 return this.type.toUpperCase();
         }
@@ -313,6 +416,25 @@ class Indicator {
 
             this.series[0].setData(histogramData);
             this.series[1].setData(dotsData);
+        } else if (this.type === 'ssl-hybrid') {
+            const sslIndicator = new SSLHybridIndicator();
+            const settings = preview ? this.tempSettings : this.settings['ssl-hybrid'];
+            
+            // Apply settings from our config
+            sslIndicator.baselineLength = settings.baselineLength;
+            
+            // Calculate indicator data
+            const sslData = sslIndicator.calculate(chartData);
+            
+            // For SSL Hybrid, we only need one series with colored data points
+            // Each data point can have its own color
+            const lineData = sslData.map(item => ({
+                time: item.time,
+                value: item.value,
+                color: item.color
+            }));
+            
+            this.series[0].setData(lineData);
         }
     }
 

@@ -24,6 +24,7 @@
                 <div class="dropdown-content">
                     <div class="indicator-item" data-indicator="sma">SMA</div>
                     <div class="indicator-item" data-indicator="squeeze-momentum">Squeeze Momentum</div>
+                    <div class="indicator-item" data-indicator="ssl-hybrid">SSL Hybrid</div>
                 </div>
             </div>
         </div>
@@ -66,6 +67,33 @@
                 <div class="settings-item">
                     <label for="squeeze-weak-down-color">Weak Down Color</label>
                     <input type="color" id="squeeze-weak-down-color" value="#800000">
+                </div>
+            </div>
+            <!-- SSL Hybrid Settings -->
+            <div id="ssl-hybrid-settings" class="indicator-specific-settings hidden">
+                <div class="settings-item">
+                    <label for="ssl-baseline-length">Baseline Length</label>
+                    <input type="number" id="ssl-baseline-length" min="1" value="60">
+                </div>
+                <div class="settings-item">
+                    <label for="ssl-ssl2-length">SSL2 Length</label>
+                    <input type="number" id="ssl-ssl2-length" min="1" value="5">
+                </div>
+                <div class="settings-item">
+                    <label for="ssl-exit-length">Exit Length</label>
+                    <input type="number" id="ssl-exit-length" min="1" value="15">
+                </div>
+                <div class="settings-item">
+                    <label for="ssl-baseline-color">Baseline Color</label>
+                    <input type="color" id="ssl-baseline-color" value="#2962FF">
+                </div>
+                <div class="settings-item">
+                    <label for="ssl-ssl2-color">SSL2 Color</label>
+                    <input type="color" id="ssl-ssl2-color" value="#ffffff">
+                </div>
+                <div class="settings-item">
+                    <label for="ssl-exit-color">Exit Color</label>
+                    <input type="color" id="ssl-exit-color" value="#ff0062">
                 </div>
             </div>
         </div>
@@ -488,6 +516,7 @@
 <script src="{{ url_for('static', filename='js/indicators/indicator.js') }}"></script>
 <script src="{{ url_for('static', filename='js/indicators/smaIndicator.js') }}"></script>
 <script src="{{ url_for('static', filename='js/indicators/squeezeIndicator.js') }}"></script>
+<script src="{{ url_for('static', filename='js/indicators/sslHybridIndicator.js') }}"></script>
 <!-- Load main chart script last -->
 <script src="{{ url_for('static', filename='js/chart.js') }}"></script>
 {% endblock %}

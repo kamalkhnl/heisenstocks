@@ -221,6 +221,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     lineWidth: 2,
                     title: 'Squeeze'
                 }, 1));
+            } else if (indicator.type === 'ssl-hybrid') {
+                const { LineSeries } = LightweightCharts;
+                const settings = indicator.settings['ssl-hybrid'];
+                
+                // Add only the SSL baseline
+                indicator.series.push(chart.addSeries(LineSeries, {
+                    lineWidth: 3,
+                    title: 'SSL Baseline',
+                    lastValueVisible: false
+                }, 0));
             }
             
             // Create UI element
